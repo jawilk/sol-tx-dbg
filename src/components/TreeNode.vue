@@ -2,17 +2,19 @@
     <div class="tree-view">
     <li style="list-style-type: none">
       <div :class="{nodeheader: isFolder}" id="item" @click="toggle">
-        <span v-if="isInEditor">-></span>
+        <span ref="nodeFocus" v-if="isInEditor" style="font-weight:bold">-></span>
         {{ node.name }}
-        <span v-if="isFolder">[{{ isOpen ? '-' : '+' }}]</span>
+        <span v-if="isFolder">[{{ node.is_open ? '-' : '+' }}]</span>
       </div>
-      <ul v-show="isOpen" v-if="isFolder">
+      <ul v-show="node.is_open" v-if="isFolder">
         <TreeNode
            class="tree-node"
            v-for="(child, index) in node.children"
            :key="index"
            :node="child"
+           :focus="focus"
            @change-file="$emit('change-file', $event)"
+           @toggle-folder="$emit('toggle-folder', $event)"
            @click="click(child)"
            >
       </TreeNode>
@@ -24,18 +26,8 @@
   <script>
 
 export default {
-    name: 'TreeNode',
-    props: ['node'],
-  data() {
-    return {
-      isOpen: false,
-    };
-  },
-  watch: {
-    isClicked() {
-      console.log("clifgfgcked", this.isClicked)
-  }
-  },
+  name: 'TreeNode',
+  props: ['node', 'focus'],
   computed: {
     isFolder() {
       return this.node.children && this.node.children.length;
@@ -44,10 +36,21 @@ export default {
       return this.node.open;
     }
   },
+  watch: {
+    focus() {
+      console.log("FOCUS", this.node)
+      this.$nextTick(function(){
+        if (this.node.open) {
+          this.$refs.nodeFocus.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+  }
+  },
   methods: {
-    toggle: function() {
+    toggle() {
+      console.log("TOGGLE", this.node)
       if (this.isFolder) {
-        this.isOpen = !this.isOpen;
+        this.$emit('toggle-folder', this.node);
       }
     },
     click(node) {
@@ -72,15 +75,18 @@ export default {
     height:100%;
      width:100%;
      overflow: scroll;
+     background: #282c34
   }
   .tree-node {
     cursor: pointer;
-    color: white;
+    color: #E0E4E6;
+    overflow: hidden;
   }
 
   .nodeheader {
     font-weight: bold;
-    color: white;
+    color: #E0E4E6;
+    cursor: pointer;
   }
 
   ul {

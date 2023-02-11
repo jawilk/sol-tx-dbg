@@ -10,12 +10,14 @@
   "dependencies": {
     "@codemirror/lang-rust": "^6.0.1",
     "@codemirror/theme-one-dark": "^6.1.0",
+    "@vscode/debugprotocol": "^1.59.0",
     "codemirror": "^6.0.1",
     "core-js": "^3.8.3",
+    "prettier": "^2.8.3",
+    "v-drag": "^3.0.8",
     "vue": "^3.2.13",
     "vue-codemirror": "^6.1.1",
-    "vue-grid-layout": "3.0.0-beta1",
-    "vue3-treeview": "^0.4.1"
+    "vue-grid-layout": "3.0.0-beta1"
   },
   "devDependencies": {
     "@babel/core": "^7.12.16",
@@ -38,7 +40,12 @@
     "parserOptions": {
       "parser": "@babel/eslint-parser"
     },
-    "rules": {}
+    "rules": {},
+    "ignorePatterns": [
+      "/home/wj/temp/test_vue/app-test-new/src/lldb.js",
+      "./src/lldb.js",
+      "*lldb.js"
+    ]
   },
   "browserslist": [
     "> 1%",

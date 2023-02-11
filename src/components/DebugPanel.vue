@@ -1,44 +1,104 @@
 <template>
-  <div>
-  <button class="btn-start" @click="next"/>
-  <button class="btn-stop" @click="next"/>
+  <div class="debug-panel">
+    <div id="debugDragHandle" title="drag me">~</div>
+    <span class="continue" @click="continue_" title="continue" />
+    <span class="arrow-left-right" @click="next" title="next">&#8594;</span>
+    <!-- <span class="arrow-left-right" @click="next" title="next">&#8592;</span>  -->
+    <span class="arrow-down-up" title="step in">&#8595;</span>
+    <span class="arrow-down-up" title="step out">&#8593;</span>
+    <span class="restart" @click="restart" title="restart">&#8635;</span>
+    <span class="stop" @click="stop" title="stop (finish session)" />
   </div>
 </template>
 
 <script>
 export default {
-  name: 'DebugPanel',
+  name: "DebugPanel",
   methods: {
+    continue_() {
+      this.$emit("continue");
+    },
     next() {
-      console.log("BUTTON NEXT")
-      this.$emit('next');
-    }
-  }
-}
+      this.$emit("next");
+    },
+    restart() {
+      this.$emit("restart");
+    },
+    stop() {
+      this.$emit("stop");
+    },
+  },
+};
 </script>
 
 <style scope>
+.drag-draggable {
+  z-index: 15;
+}
+.debug-panel {
+  left: 30%;
+  top: 30px;
+  position: absolute;
+  background-color: transparent;
+  width: 200px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  justify-content: space-evenly;
+  z-index: 15;
+}
 
-.btn-start {
+#debugDragHandle {
+  font-size: 30px;
+  margin-right: 20px;
+  color: #61afef;
+  text-align: center;
+  height: 100%;
+  background-color: transparent;
+}
+
+.arrow-left-right {
+  color: #61afef;
+  font-size: 50px;
+  margin-bottom: 10px;
   cursor: pointer;
-  width: 25px;
-  height: 25px;
+}
+
+.arrow-down-up {
+  pointer-events: none;
+  color: #858585;
+  font-size: 40px;
+  cursor: pointer;
+  padding: 15px;
+  margin-bottom: 10px;
+}
+
+.continue {
+  margin-right: 10px;
   box-sizing: border-box;
   border-style: solid;
-  border-width: 12px 0px 12px 30px;
+  border-width: 12px 0px 12px 25px;
   background: transparent;
-  border-color: transparent transparent transparent #347c1d;
-}
-
-.btn-stop {
-  float: right;
+  border-color: transparent transparent transparent #61afef;
   cursor: pointer;
-  width: 25px;
-  height: 25px;
-  border-style: solid;
-  border-width: 3px;
-  background: transparent;
-  border-color: #c52525;
 }
 
+.restart {
+  height: 100%;
+  color: #98c379;
+  font-size: 40px;
+  margin-bottom: 12px;
+  padding-right: 20px;
+  padding-left: 7px;
+  cursor: pointer;
+}
+
+.stop {
+  cursor: pointer;
+  border-style: solid;
+  border-width: 12px;
+  border-color: #e06c75;
+  cursor: pointer;
+}
 </style>
