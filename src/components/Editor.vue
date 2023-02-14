@@ -12,6 +12,7 @@
       @ready="handleReady"
       @change="log('change', $event)"
       @focus="log('focus', $event)"
+      @update="handleUpdate"
     />
   </div>
 </template>
@@ -90,7 +91,6 @@ function toggleBreakpoint(view, pos) {
   view.dispatch({
     effects: breakpointEffect.of({ pos, on: !hasBreakpoint }),
   });
-  console.log(view);
 }
 
 const breakpointMarker = new (class extends GutterMarker {
@@ -99,31 +99,7 @@ const breakpointMarker = new (class extends GutterMarker {
   }
 })();
 
-const breakpointGutter = [
-  breakpointState,
-  gutter({
-    class: "cm-breakpoint-gutter",
-    markers: (v) => v.state.field(breakpointState),
-    initialSpacer: () => breakpointMarker,
-    domEventHandlers: {
-      mousedown(view, line) {
-        console.log(line);
-        toggleBreakpoint(view, line.from);
-        return true;
-      },
-    },
-  }),
-  EditorView.baseTheme({
-    ".cm-breakpoint-gutter .cm-gutterElement": {
-      color: "red",
-      cursor: "pointer",
-      paddingLeft: "5px",
-    },
-    ".cm-gutterElement:hover": {
-      color: "red",
-    },
-  }),
-];
+
 
 export default {
   name: "EditorComponent",
@@ -135,7 +111,30 @@ export default {
     next: Boolean,
     line: Number,
   },
+
+  mounted() {
+
+    this.$nextTick(function () {
+      // this.$refs.cm.codemirror.on("gutterClick", this.handleGutterClick);
+    const element = document.querySelector('.cm-breakpoint-gutter')
+    console.log("HERE", element)
+    element.addEventListener('click', () => {
+      this.breakpointEvent();
+    });
+    // console.log("vfdv",this.view)//.value.on("gutterClick", this.handleGutterClick);
+      });
+  },
   methods: {
+    gutterClick(cm, n) {
+      console.log("gutterClick", cm, n);
+    },
+    handleGutterClick(instance, line, gutter, clickEvent) {
+    // Your gutter click event handling logic goes here
+    console.log("breakpointevent2", instance, line, gutter, clickEvent);
+    },
+    breakpointEvent() {
+      console.log("breakpointevent");
+    },
     highlightLine(line) {
       console.log("highlightLine", line);
       const docPosition2 = this.view.state.doc.line(line).from;
@@ -176,7 +175,7 @@ export default {
               EditorView.contentAttributes.of({ contenteditable: false }),
               this.extensions,
               lineNumbers(),
-              ...breakpointGutter,
+              // ...breakpointGutter,
             ],
             // selection: EditorSelection.cursor(exercise2.cursorStart),
           });
@@ -186,12 +185,45 @@ export default {
         });
     },
   },
-  setup() {
+  setup(props, context) {
+    const breakpointGutter = [
+  breakpointState,
+  gutter({
+    class: "cm-breakpoint-gutter",
+    markers: (v) => v.state.field(breakpointState),
+    initialSpacer: () => breakpointMarker,
+    domEventHandlers: {
+      mousedown(view, line) {
+        console.log("LINE:",line);
+        context.emit('breakpoint', line);
+        toggleBreakpoint(view, line.from);
+        return true;
+      },
+    },
+  }),
+  EditorView.baseTheme({
+    ".cm-breakpoint-gutter .cm-gutterElement": {
+      color: "red",
+      cursor: "pointer",
+      paddingLeft: "5px",
+    },
+    ".cm-gutterElement:hover": {
+      color: "red",
+    },
+  }),
+];
     // Codemirror EditorView instance ref
     const view = shallowRef();
     const handleReady = (payload) => {
+      console.log("pay",payload)
       view.value = payload.view;
+      // payload.on("gutterClick", handleGutterClick);
     };
+
+    // function handleGutterClick(instance, line, gutter, clickEvent) {
+    //   // Your gutter click event handling logic goes here
+    //   console.log("breakpointevent2", line, gutter, clickEvent);
+    // }
 
     const code = ref(" ");
     const extensions = [

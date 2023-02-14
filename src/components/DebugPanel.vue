@@ -2,7 +2,7 @@
   <div class="debug-panel">
     <div id="debugDragHandle" title="drag me">~</div>
     <span class="continue" @click="continue_" title="continue" />
-    <span class="arrow-left-right" @click="next" title="next">&#8594;</span>
+    <span class="arrow-left-right" @click="next" :class="{'deactivated': !isActive}" title="next">&#8594;</span>
     <!-- <span class="arrow-left-right" @click="next" title="next">&#8592;</span>  -->
     <span class="arrow-down-up" title="step in">&#8595;</span>
     <span class="arrow-down-up" title="step out">&#8593;</span>
@@ -14,11 +14,13 @@
 <script>
 export default {
   name: "DebugPanel",
+  props: ["isActive"],
   methods: {
     continue_() {
       this.$emit("continue");
     },
     next() {
+      if (!this.isActive) return;
       this.$emit("next");
     },
     restart() {
@@ -32,6 +34,11 @@ export default {
 </script>
 
 <style scope>
+.deactivated {
+  color: #858585 !important;
+  cursor: not-allowed !important;
+}
+
 .drag-draggable {
   z-index: 15;
 }
@@ -76,6 +83,7 @@ export default {
 
 .continue {
   margin-right: 10px;
+  margin-bottom: 20px;
   box-sizing: border-box;
   border-style: solid;
   border-width: 12px 0px 12px 25px;
@@ -88,14 +96,14 @@ export default {
   height: 100%;
   color: #98c379;
   font-size: 40px;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
   padding-right: 20px;
   padding-left: 7px;
   cursor: pointer;
 }
 
 .stop {
-  cursor: pointer;
+  margin-bottom: 15px;
   border-style: solid;
   border-width: 12px;
   border-color: #e06c75;

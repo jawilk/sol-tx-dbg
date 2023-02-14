@@ -38,7 +38,6 @@ export default {
   },
   watch: {
     focus() {
-      console.log("FOCUS", this.node)
       this.$nextTick(function(){
         if (this.node.open) {
           this.$refs.nodeFocus.scrollIntoView({ behavior: 'smooth' });
