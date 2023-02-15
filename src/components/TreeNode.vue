@@ -1,5 +1,14 @@
 <template>
     <div class="tree-view">
+      <div v-if="isTopLevel" class="panel-header">
+        <p class="title">files</p>
+        <div class="switch-container" title="remove">
+        <label class="switch">
+          <input type="checkbox">
+          <span class="slider round"></span>
+        </label>
+        </div>  
+        </div>
     <li style="list-style-type: none">
       <div :class="{nodeheader: isFolder}" id="item" @click="toggle">
         <span ref="nodeFocus" v-if="isInEditor" style="font-weight:bold">-></span>
@@ -10,6 +19,7 @@
         <TreeNode
            class="tree-node"
            v-for="(child, index) in node.children"
+           :is-top-level="false"
            :key="index"
            :node="child"
            :focus="focus"
@@ -27,7 +37,12 @@
 
 export default {
   name: 'TreeNode',
-  props: ['node', 'focus'],
+  props: {'node': Object, 
+          'focus': Boolean, 
+          'isTopLevel': {
+      type: Boolean,
+      default: true
+    }},
   computed: {
     isFolder() {
       return this.node.children && this.node.children.length;
@@ -74,12 +89,17 @@ export default {
     height:100%;
      width:100%;
      overflow: scroll;
-     background: #282c34
+     background: #201c1c;
+     border-color: #30363d;
+     border-style: solid;
+     border-radius: 6px;
+     border-width: 1px;
   }
   .tree-node {
     cursor: pointer;
     color: #E0E4E6;
     overflow: hidden;
+    border-style: none;
   }
 
   .nodeheader {

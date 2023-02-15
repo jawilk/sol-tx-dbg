@@ -1,10 +1,14 @@
 <template>
     <div class="dis-view">
-      <!-- <ul class="dis-list">
-        <li class="dis-line" v-for="(item, index) in disData" :key="item.id" :class="{ 'yellow-background': index === 0 }">
-          {{ item.text }}
-        </li>
-      </ul>  -->
+      <div class="panel-header">
+        <p class="title">disassembly</p>
+        <div class="switch-container" title="remove">
+        <label class="switch">
+          <input type="checkbox">
+          <span class="slider round"></span>
+        </label>
+        </div>  
+        </div>
       <table class="dis-table">
         <tr class="header">
           <th class="table-entry">addr</th>
@@ -32,7 +36,11 @@
   height:100%;
   width:100%;
   overflow: scroll;
-  background: #282c34
+  background: #201c1c;
+  border-color: #30363d;
+  border-style: solid;
+  border-radius: 6px;
+  border-width: 1px;
 }
 
 .header {

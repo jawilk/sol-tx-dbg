@@ -1,6 +1,7 @@
 <template>
   <div class="editor-container">
     <codemirror
+      class="editor"
       ref="cm"
       v-model="code"
       placeholder="Code goes here..."
@@ -21,7 +22,9 @@
 import { ref, shallowRef } from "vue";
 import { Codemirror } from "vue-codemirror";
 import { rust } from "@codemirror/lang-rust";
-import { oneDark } from "@codemirror/theme-one-dark";
+// import { oneDark } from "@codemirror/theme-one-dark";
+import { oneDark } from "../one-dark.js";
+
 import {
   EditorState,
   StateField,
@@ -110,6 +113,8 @@ export default {
     file: Object,
     next: Boolean,
     line: Number,
+    breakpointsEditor: Object,
+    breakpointsEditorRemove: null,
   },
 
   mounted() {
@@ -145,7 +150,14 @@ export default {
     y: 'center',
 })
 });
-
+    },
+    addBreakpoints() {
+        this.breakpointsEditor.forEach((l) => {
+          const docPosition = this.view.state.doc.line(l).from;
+          this.view.dispatch({
+            effects: breakpointEffect.of({ pos: docPosition, on: true }),
+          });
+        });
     },
     async parseFile(url) {
       try {
@@ -157,11 +169,19 @@ export default {
     },
   },
   watch: {
+    // Event from breakpoint panel
+    breakpointsEditorRemove() {
+      console.log("BREAKPOINTS", this.breakpointsEditorRemove);
+        const docPosition = this.view.state.doc.line(this.breakpointsEditorRemove).from;
+        this.view.dispatch({
+          effects: breakpointEffect.of({ pos: docPosition, on: false }),
+      });
+    },
     line() {
-    if (!this.isNewFile) {
+    // if (!this.isNewFile) {
       console.log("NEXT", this.line)
       this.highlightLine(this.line)
-    }
+    // }
     },
     file() {
       console.log("CHANGED", this.file.name);
@@ -175,13 +195,15 @@ export default {
               EditorView.contentAttributes.of({ contenteditable: false }),
               this.extensions,
               lineNumbers(),
-              // ...breakpointGutter,
             ],
-            // selection: EditorSelection.cursor(exercise2.cursorStart),
           });
           this.view.setState(newState);
-          // this.view.dispatch({changes: {from: 0, to: this.view.state.doc.length, insert: txt}})
+          if (this.file.line !== undefined) {
           this.highlightLine(this.file.line);
+          }
+          if (this.breakpointsEditor !== undefined) {
+            this.addBreakpoints();
+          }
         });
     },
   },
@@ -195,7 +217,7 @@ export default {
     domEventHandlers: {
       mousedown(view, line) {
         console.log("LINE:",line);
-        context.emit('breakpoint', line);
+        context.emit('breakpoint', view.state.doc.lineAt(line.from).number);
         toggleBreakpoint(view, line.from);
         return true;
       },
@@ -228,10 +250,10 @@ export default {
     const code = ref(" ");
     const extensions = [
       EditorView.contentAttributes.of({ contenteditable: false }),
-      ...breakpointGutter,
       lineHighlightField,
       rust(),
       oneDark,
+      ...breakpointGutter,
     ];
 
     // Status is available at all times via Codemirror EditorView
@@ -266,6 +288,9 @@ export default {
 .editor-container {
   height: 100%;
   width: 100%;
+  border-style: solid;
+  border-radius: 6px;
+  border-width: 1px;
   overflow: scroll;
 }
 </style>

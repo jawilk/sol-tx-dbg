@@ -43,8 +43,8 @@ export default {
   z-index: 15;
 }
 .debug-panel {
-  left: 30%;
-  top: 30px;
+  top: 5px;
+  left: 25%;
   position: absolute;
   background-color: transparent;
   width: 200px;
