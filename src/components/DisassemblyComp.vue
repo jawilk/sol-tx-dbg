@@ -15,7 +15,7 @@
           <th class="table-entry2">inst</th>
           <th class="table-entry">mnem</th>
         </tr>
-        <tr v-for="(item, index) in disData" :key="item.addr" :class="{ 'yellow-background': index === 0 }">
+        <tr v-for="(item, index) in disData" :key="item.addr" :class="{ 'dis-background': index === 0 }">
           <td>{{ item.addr }}</td>
           <td>{{ item.inst }}</td>
           <td>{{ item.mnem }}</td>
@@ -60,8 +60,8 @@
   font-size: 1.2em;
 }
 
-.yellow-background {
-  background-color: #595910;
+.dis-background {
+  color: #98c379 !important;
 }
 </style>
   

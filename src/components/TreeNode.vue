@@ -11,8 +11,8 @@
         </div>
     <li style="list-style-type: none">
       <div :class="{nodeheader: isFolder}" id="item" @click="toggle">
-        <span ref="nodeFocus" v-if="isInEditor" style="font-weight:bold">-></span>
-        {{ node.name }}
+        <span ref="nodeFocus" v-if="isInEditor" class="curfile">-> </span>
+        <span :class="{curfile: isInEditor}">{{ node.name }}</span>
         <span v-if="isFolder">[{{ node.is_open ? '-' : '+' }}]</span>
       </div>
       <ul v-show="node.is_open" v-if="isFolder">
@@ -112,5 +112,10 @@ export default {
     padding-left: 1em;
     line-height: 1.5em;
     list-style-type: none;
+  }
+
+  .curfile {
+    font-weight:bold;
+    color: #98c379;
   }
     </style>

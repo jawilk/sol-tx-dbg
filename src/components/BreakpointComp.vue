@@ -142,6 +142,7 @@ input:checked + .slider:before {
 
 .delete {
   cursor: pointer;
+  color: #e06c75;
 }
 
 .delete-breakpoint {
