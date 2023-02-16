@@ -52,6 +52,9 @@ export default {
     }
   },
   watch: {
+    node() {
+      console.log("HEREEE")
+    },
     focus() {
       this.$nextTick(function(){
         if (this.node.open) {

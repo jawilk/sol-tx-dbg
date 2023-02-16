@@ -1,10 +1,5 @@
 <template>
     <div class="dis-view">
-      <!-- <ul class="dis-list">
-        <li class="dis-line" v-for="(item, index) in disData" :key="item.id" :class="{ 'yellow-background': index === 0 }">
-          {{ item.text }}
-        </li>
-      </ul>  -->
       <div class="panel-header">
       <p class="title">breakpoints</p>
       <div class="switch-container" title="remove">
