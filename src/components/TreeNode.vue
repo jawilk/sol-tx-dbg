@@ -1,14 +1,4 @@
 <template>
-    <div class="tree-view">
-      <div v-if="isTopLevel" class="panel-header">
-        <p class="title">files</p>
-        <div class="switch-container" title="remove">
-        <label class="switch">
-          <input type="checkbox">
-          <span class="slider round"></span>
-        </label>
-        </div>  
-        </div>
     <li style="list-style-type: none">
       <div :class="{nodeheader: isFolder}" id="item" @click="toggle">
         <span ref="nodeFocus" v-if="isInEditor" class="curfile">-> </span>
@@ -30,7 +20,6 @@
       </TreeNode>
       </ul>
     </li>
-</div>
   </template>
 
   <script>
@@ -87,18 +76,7 @@ export default {
   }
   #item:after {
     background-color: yellow;
-  }
-  .tree-view {
-    height:100%;
-     width:100%;
-     overflow: scroll;
-     background: #201c1c;
-     border-color: #30363d;
-     border-style: solid;
-     border-radius: 6px;
-     border-width: 1px;
-  }
-  .tree-node {
+  }  .tree-node {
     cursor: pointer;
     color: #E0E4E6;
     overflow: hidden;

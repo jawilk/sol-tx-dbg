@@ -1,0 +1,21 @@
+[package]
+name = "poc-rewrite"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+poc-framework = { path = "../solana-poc-framework" }
+solana-program = "=1.14.13"
+solana-transaction-status = "=1.14.13"
+solana-client = "=1.14.13"
+solana-sdk = "=1.14.13"
+spl-token-2022 = "0.6.0"
+solana-bpf-loader-program = { path = "../solana-bpf-loader-program" }
+
+[patch.crates-io]
+solana-bpf-loader-program = { path = "../solana-bpf-loader-program" }
+solana-runtime = { path = "../solana-runtime" }
+solana-sdk = { path = "../solana-sdk" }
+solana_rbpf = { path = "../solana-rbpf"}

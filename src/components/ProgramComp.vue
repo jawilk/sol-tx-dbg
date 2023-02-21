@@ -1,5 +1,5 @@
 <template>
-    <div class="tx-hash-wrap">
+    <div class="wrap">
       <div v-drag="{ handle: '#debugDragHandle' }">
         <DebugPanel
           :isActive="isActive"
@@ -9,11 +9,12 @@
           @stop="stop"
         />
       </div>
+      <button class="add-item" @click="addItem" title="add panel">+</button>
     </div>
     <div class="content">
       <grid-layout
         v-model:layout="layout"
-        :col-num="12"
+        :col-num="colNum"
         :row-height="30"
         :is-draggable="true"
         :is-resizable="true"
@@ -29,11 +30,17 @@
           :h="item.h"
           :i="item.i"
           :is-resizable="item.isResizable"
-        >
+        >    
+        <div class="dis-view">
+
+        <div v-if="item.name !== 'editor'" class="panel-header">
+          <p class="title">{{ item.name }}</p>
+          <div class="delete-container" title="remove">
+          <span class="delete" @click="removeItem(item.i)">x</span>  
+          </div>
+        </div> 
           <component
             :node="tree"
-            @make-folder="$emit('make-folder', $event)"
-            @add-item2="$emit('add-item2', $event)"
             :line="line"
             :file="file"
             :focus="focus"
@@ -47,10 +54,12 @@
             @breakpoint="breakpoint"
             @deleteBreakpoint="deleteBreakpoint"
             @executeCommand="executeLLDBCommand"
+            @changeName="changeName($event, item.i)"
             v-if="item.isComponent"
             :is="item.c"
           ></component>
           <div v-else v-html="item.c"></div>
+          </div>
         </grid-item>
       </grid-layout>
     </div>
@@ -64,27 +73,28 @@ import TreeNode from "./TreeNode.vue";
 import DisassemblyComp from "./DisassemblyComp.vue";
 import BreakpointComp from "./BreakpointComp.vue";
 import LLDBComp from "./LLDBComp.vue";
-// import lldbModule from "../lldb";
+import NewComp from "./NewComp.vue";
+import lldbModule from "../lldb";
 
 const startLayout = [
-  // {"x":6,"y":0,"w":1,"h":3,"i":"0","c":'AddBtn','isResizable':false,'isComponent': true},
   {
     x: 1,
     y: 1,
     w: 5,
     h: 20,
-    i: "1",
+    i: "0",
+    name: "editor",
     c: "EditorComponent",
     isResizable: true,
     isComponent: true,
   },
-  // {"x":2,"y":0,"w":2,"h":1,"i":"2","c":'DebugPanel','isResizable':false,'isComponent': true},
   {
     x: 0,
     y: 0,
     w: 1,
     h: 10,
-    i: "2",
+    i: "1",
+    name: "files",
     c: "TreeNode",
     isResizable: true,
     isComponent: true,
@@ -94,7 +104,8 @@ const startLayout = [
     y: 0,
     w: 3,
     h: 8,
-    i: "3",
+    i: "2",
+    name: "disassembly",
     c: "DisassemblyComp",
     isResizable: true,
     isComponent: true,
@@ -102,9 +113,10 @@ const startLayout = [
   {
     x: 6,
     y: 0,
-    w: 3,
+    w: 2,
     h: 8,
-    i: "4",
+    i: "3",
+    name: "breakpoints",
     c: "BreakpointComp",
     isResizable: true,
     isComponent: true,
@@ -114,7 +126,8 @@ const startLayout = [
     y: 3,
     w: 3,
     h: 8,
-    i: "5",
+    i: "4",
+    name: "lldb command",
     c: "LLDBComp",
     isResizable: true,
     isComponent: true,
@@ -137,8 +150,6 @@ const startLayout = [
 //           }
 //       };
 
-let lldbInstance = null;
-
 export default {
   name: "App",
   components: {
@@ -149,24 +160,14 @@ export default {
     DisassemblyComp,
     BreakpointComp,
     LLDBComp,
+    NewComp,
   },
-    // beforeCreate() {
-    //   new lldbModule({
-    //     locateFile(path) {
-    //       if (path.endsWith(`.wasm`)) {
-    //         return "http://localhost:8003/lldb.wasm";
-    //       }
-    //       return path;
-    //     },
-    //   }).then((myModule) => {
-    //     lldbInstance = myModule;
-    //     console.log("LOADED WASM");
-    //   });
-    // },
   data() {
     return {
-      layout: JSON.parse(JSON.stringify(startLayout)),
-      index: 3,
+      LLDB: null,
+      layout: startLayout,
+      index: 0,
+      colNum: 12,
       file: {},
       line: 1,
       tree: {},
@@ -179,59 +180,118 @@ export default {
       breakpointsEditor: [],
       breakpointsEditorRemove: null,
       lldbOutput: '',
+      tx_hash: '',
+      inst_nr: 0,
     };
   },
-  async mounted() {
+  async created() {
+      // Fetch lldb.wasm
+      // new lldbModule({
+      //   locateFile(path) {
+      //     if (path.endsWith(`.wasm`)) {
+      //       return "http://localhost:8003/lldb.wasm";
+      //     }
+      //     return path;
+      //   },
+      // }).then((myModule) => {
+      //   this.LLDB = myModule;
+      //   console.log("LOADED WASM");
+      // });
+    this.LLDB = await this.fetchLLDB();
+    // vue-grid-layout
     this.index = this.layout.length;
-    let hash_id = this.$route.query.hash_id;
-    // const response = await fetch("http://localhost:8000/program/" + hash_id);
-    this.getTree(hash_id.split('_')[1]);
-    // await this.loadElf(hash_id.split('_')[1]);
-    // await this.connect();
-  },
+    this.tx_hash = this.$route.query.tx_hash;
+    this.inst_nr = this.$route.query.inst_nr;
+    console.log( this.$route.query)
+    await this.getTree(this.$route.query.program_id);
+    await this.loadElf(this.$route.query.program_id);
+    // CPI
+    let res = await this.LLDB.ccall("execute_command", "number", ["string"], ["b solana_program::program::invoke_signed_unchecked"]);
+    await this.LLDB._free(res);
+    await this.connect();
+    // await this.updateEditor();
+    console.log("mounted");
+    },
   methods: {
+    async fetchLLDB() {
+      return new lldbModule({
+        locateFile(path) {
+          if (path.endsWith(`.wasm`)) {
+            return "http://localhost:8003/lldb.wasm";
+          }
+          return path;
+        },
+      })
+    },
+    // Components
+    removeItem(val) {
+      const index = this.layout.findIndex(item => item.i === val);
+      this.layout.splice(index, 1);    
+    },
+    addItem() {
+            this.layout.push({
+                x: 2,
+                y: 1,
+                w: 3,
+                h: 10,
+                i: this.index,
+                name: "",
+                c: "NewComp",
+                isResizable: true,
+                isComponent: true,
+            });
+            this.index++;
+      },
+    changeName(name, val) {
+      console.log("change", name, val);
+            const index = this.layout.findIndex(item => item.i === val);
+            this.layout[index].name = name;
+        },
     // LLDB commands
-    async loadELf(program_id) {
-      var data = await fetch("http://localhost:8003/" + program_id);
+    async loadElf(program_id) {
+      var data = await fetch("http://localhost:8003/elfs/" + program_id + ".so");
       data = await data["arrayBuffer"]();
       console.log(data);
-      lldbInstance.FS.writeFile("program.so", new Uint8Array(data));
-      lldbInstance.ccall("create_target", null, ["string"], ["program.so"]);
-      // await lldbInstance.ccall('execute_command', 'number', ['string'], ['b process_instruction']);
+      this.LLDB.FS.writeFile("program.so", new Uint8Array(data));
+      let res = this.LLDB.ccall("create_target", null, ["string"], ["program.so"]);
+      this.LLDB._free(res);
     },
     async connect() {
-      await lldbInstance.ccall('execute_command', 'number', ['string'], ['gdb-remote 9007']);
+      this.LLDB['websocket']['url'] = "ws://localhost:9007/?token=" + this.tx_hash + "_" + this.inst_nr;
+      const res = await this.LLDB.ccall('execute_command', 'number', ['string'], ['gdb-remote 9007']);
+      this.LLDB._free(res);
     },
     async executeLLDBCommand(command) {
       console.log("executeLLDBCommand", command);
-      let ret = await lldbInstance.ccall("execute_command", "string", ["string"], [command]);
-      this.lldbOutput = ret;
-      console.log("executeLLDBCommand", ret);
+      let resPtr = await this.LLDB.ccall("execute_command", "number", ["string"], [command]);
+      this.lldbOutput = await this.LLDB.UTF8ToString(resPtr);
+      this.LLDB._free(resPtr);
     },
     // Debug Panel
     async next() {
       this.isActive = false;
       console.log("next");
-      // await lldbInstance.ccall("request_next", null, [], []);
-      await lldbInstance.ccall("execute_command", "string", ["string"], ['next']);
+      // await this.LLDB.ccall("request_next_with_cpi", null, [], []);
+      const res = await this.LLDB.ccall("execute_command", "number", ["string"], ['next']);
+      this.LLDB._free(res);
       await this.updateEditor();
       this.isActive = true;
     },
     async continue_() {
       this.isActive = false;
       console.log("continue");
-      await lldbInstance.ccall("request_continue", null, [], []);
+      await this.LLDB.ccall("request_continue", null, [], []);
       this.updateEditor();
       this.isActive = true;
     },
     async restart() {
       console.log("restart");
-      await lldbInstance.ccall("request_next", null, [], []);
+      await this.LLDB.ccall("request_next", null, [], []);
       this.updateEditor();
     },
     async stop() {
       console.log("stop");
-      await lldbInstance.ccall("request_next", null, [], []);
+      await this.LLDB.ccall("request_next", null, [], []);
       this.updateEditor();
     },
     // Update
@@ -243,15 +303,15 @@ export default {
         "command": "stackTrace",
         "arguments": { "threadId": 0, "startFrame": 0, "levels": 10 }};
         console.log("request", request)
-      let rxPtr = await lldbInstance._malloc(request.length + 1);
-      await lldbInstance.stringToUTF8(request, rxPtr, request.length + 1);
-      const txPtr = await lldbInstance.ccall(
+      let rxPtr = await this.LLDB._malloc(request.length + 1);
+      await this.LLDB.stringToUTF8(request, rxPtr, request.length + 1);
+      const txPtr = await this.LLDB.ccall(
         "request_stackTrace",
         "number",
         ["number"],
         [rxPtr],
       );
-      const responseStr = await lldbInstance.UTF8ToString(txPtr);
+      const responseStr = await this.LLDB.UTF8ToString(txPtr);
       let responseJSON = JSON.parse(responseStr);
       console.log("response", responseJSON);
       this.seqId++;
@@ -269,7 +329,7 @@ export default {
     },
 
     async disassemble() {
-      let res = await lldbInstance.ccall('execute_command', 'string', ['string'], ['disassemble -p -b -c 7']);
+      let res = await this.LLDB.ccall('execute_command', 'string', ['string'], ['disassemble -p -b -c 7']);
       console.log("dis", res.split("\n"));
       res = res.split("\n").slice(1);
       res[0] = res[0].slice(3) // Remove leading arrow
@@ -288,8 +348,8 @@ export default {
     },
 
     sanitizeFileName(fileName) {
-      if (fileName.includes('solana-program-1.10.35')) {
-        fileName = 'code/sdk/program/' + fileName.split('solana-program-1.10.35/')[1]
+      if (fileName.includes('solana-program-1.10.33')) {
+        fileName = 'code/sdk/program/' + fileName.split('solana-program-1.10.33/')[1]
       }
       else if (fileName.includes('rust-own')) {
         fileName = 'code/rust-solana-1.59.0/' + fileName.split('rust-own/rust/')[1]
@@ -414,7 +474,116 @@ body {
   background-color: #201c1c;
 }
 
-.tx-hash-wrap {
+.add-item {
+  color: #E0E4E6;
+  background-color: transparent;
+  border-radius: 6px;
+  border-color: #30363d;
+  border-style: solid;
+  border-width: 1px;
+  position: absolute;
+  left: 20px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  text-align: center;
+
+}
+
+.dis-view {
+  height:100%;
+  width:100%;
+  overflow: scroll;
+  background: #201c1c;
+  border-color: #30363d;
+  border-style: solid;
+  border-radius: 6px;
+  border-width: 1px;
+}
+
+.panel-header {
+display: flex;
+align-items: center;
+flex-direction: row;
+}
+
+.delete-container {
+    position: absolute;
+    right: 2px;
+    top: 0;
+    cursor: pointer;
+  }
+
+.title {
+margin-top: 0;
+color: #E0E4E6;
+font-weight: bold;
+font-size: 1.2em;
+width: 50px;
+}
+
+.switch-container {
+margin-top: -8px;
+margin-left: auto;
+margin-right: 10px; 
+}
+
+.switch {
+position: relative;
+display: inline-block;
+width: 25px;
+height: 14px;
+}
+
+.switch input { 
+opacity: 0;
+width: 0;
+height: 0;
+}
+
+.slider {
+position: absolute;
+cursor: pointer;
+top: 0;
+left: 0;
+right: 0;
+bottom: 0;
+background-color: #98c379;
+-webkit-transition: .4s;
+transition: .4s;
+}
+
+.slider:before {
+position: absolute;
+content: "";
+height: 9px;
+width: 9px;
+left: 3px;
+bottom: 3px;
+background-color: white;
+-webkit-transition: .4s;
+transition: .4s;
+}
+
+input:checked + .slider {
+background-color: #e06c75;
+}
+
+input:checked + .slider:before {
+-webkit-transform: translateX(10px);
+-ms-transform: translateX(10px);
+transform: translateX(10px);
+}
+
+.slider.round {
+border-radius: 24px;
+}
+
+.slider.round:before {
+border-radius: 50%;
+}
+
+.wrap {
   top: 0;
   left: 0;
   z-index: 15;
@@ -423,7 +592,7 @@ body {
   text-align: center;
   width: 100%;
   border: none;
-  background-color: #201c1c;
+  background-color: transparent;
   color: white;
   font-size: 14px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
@@ -443,6 +612,7 @@ body {
 
 .vue-grid-layout {
   background: #201c1c;
+  left: 0;
 }
 
 .columns {

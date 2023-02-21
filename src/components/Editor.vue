@@ -1,5 +1,4 @@
 <template>
-  <div class="editor-container">
     <codemirror
       class="editor"
       ref="cm"
@@ -15,7 +14,6 @@
       @focus="log('focus', $event)"
       @update="handleUpdate"
     />
-  </div>
 </template>
 
 <script>
@@ -283,14 +281,3 @@ export default {
   },
 };
 </script>
-
-<style scoped>
-.editor-container {
-  height: 100%;
-  width: 100%;
-  border-style: solid;
-  border-radius: 6px;
-  border-width: 1px;
-  overflow: scroll;
-}
-</style>

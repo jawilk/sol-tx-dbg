@@ -36,7 +36,7 @@
         methods: {
           startDebugger(index) {
             console.log("start debugger", this.txHash+'_'+this.instData[index].program_id);
-            this.$router.push({name: "program", query: {hash_id: this.txHash+'_'+this.instData[index].program_id}});
+            this.$router.push({name: "program", query: {tx_hash: this.txHash, inst_nr: index.toString(), program_id: this.instData[index].program_id}});
           },
         }
       };

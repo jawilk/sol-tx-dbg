@@ -1,14 +1,4 @@
 <template>
-    <div class="dis-view">
-      <div class="panel-header">
-      <p class="title" style="width: 150px">lldb commands</p>
-      <div class="switch-container" title="remove">
-      <label class="switch">
-        <input type="checkbox">
-        <span class="slider round"></span>
-      </label>
-      </div>  
-      </div>
      <div class="lldb-input-wrapper">
         <form class="tx-hash-input" @submit.prevent="executeCommand">
             <input
@@ -25,7 +15,6 @@
         <b>Output:</b><br>
         {{ lldbOutput }}
       </div>
-    </div>
 </template>
   
   <script>

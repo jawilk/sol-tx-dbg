@@ -1,14 +1,4 @@
 <template>
-    <div class="dis-view">
-      <div class="panel-header">
-        <p class="title">disassembly</p>
-        <div class="switch-container" title="remove">
-        <label class="switch">
-          <input type="checkbox">
-          <span class="slider round"></span>
-        </label>
-        </div>  
-        </div>
       <table class="dis-table">
         <tr class="header">
           <th class="table-entry">addr</th>
@@ -21,7 +11,6 @@
           <td>{{ item.mnem }}</td>
         </tr>
       </table>
-    </div>
 </template>
   
   <script>
@@ -32,17 +21,6 @@
   </script>
 
   <style>
-  .dis-view {
-  height:100%;
-  width:100%;
-  overflow: scroll;
-  background: #201c1c;
-  border-color: #30363d;
-  border-style: solid;
-  border-radius: 6px;
-  border-width: 1px;
-}
-
 .header {
   text-align: left;
 }
