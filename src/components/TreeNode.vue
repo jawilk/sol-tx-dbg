@@ -13,8 +13,8 @@
            :key="index"
            :node="child"
            :focus="focus"
-           @change-file="$emit('change-file', $event)"
-           @toggle-folder="$emit('toggle-folder', $event)"
+           @changeFile="$emit('changeFile', $event)"
+           @toggleFolder="$emit('toggleFolder', $event)"
            @click="click(child)"
            >
       </TreeNode>
@@ -56,13 +56,13 @@ export default {
     toggle() {
       console.log("TOGGLE", this.node)
       if (this.isFolder) {
-        this.$emit('toggle-folder', this.node);
+        this.$emit('toggleFolder', this.node);
       }
     },
     click(node) {
         if (node.name.includes(".rs")) {
             console.log("clicked", node.name, node.path)
-            this.$emit('change-file', node);
+            this.$emit('changeFile', node);
         }
     }
   }

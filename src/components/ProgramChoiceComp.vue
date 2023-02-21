@@ -1,6 +1,6 @@
 <template>
     <div class="program-choice-header">
-        <p>This transaction contains <span style="color:#98c379">{{ instData.length }}</span> main program invocations. Please choose:</p>
+        <p>This transaction contains <span style="color:#98c379">{{ instData.length }}</span> instructions with program invocations. Please choose:</p>
         </div>  
     <div class="program-view">
         <div class="program" v-for="(program, index) in instData" :key="index">

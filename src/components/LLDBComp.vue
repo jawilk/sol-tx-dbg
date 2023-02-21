@@ -13,22 +13,24 @@
      </div>
      <div class="output">
         <b>Output:</b><br>
-        {{ lldbOutput }}
+        {{ output }}
       </div>
 </template>
   
   <script>
   export default {
     name: 'LLDBComp',
-    props: ['lldbOutput'],
+    props: ['executeLLDBCommand'],
     data() {
         return {
             command: '',
+            output: '',
         };
     },
   methods: {
-    executeCommand() {
-      this.$emit('executeCommand', this.command);
+    async executeCommand() {
+      this.output = await this.executeLLDBCommand(this.command);
+      console.log(this.output);
     },
   }
   }

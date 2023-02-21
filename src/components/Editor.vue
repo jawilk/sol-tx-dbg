@@ -12,7 +12,6 @@
       @ready="handleReady"
       @change="log('change', $event)"
       @focus="log('focus', $event)"
-      @update="handleUpdate"
     />
 </template>
 
@@ -109,22 +108,22 @@ export default {
   },
   props: {
     file: Object,
-    next: Boolean,
-    line: Number,
     breakpointsEditor: Object,
     breakpointsEditorRemove: null,
   },
-
+  data() {
+    return {
+      curFile: {},
+    }
+  },
   mounted() {
 
     this.$nextTick(function () {
-      // this.$refs.cm.codemirror.on("gutterClick", this.handleGutterClick);
     const element = document.querySelector('.cm-breakpoint-gutter')
     console.log("HERE", element)
     element.addEventListener('click', () => {
       this.breakpointEvent();
     });
-    // console.log("vfdv",this.view)//.value.on("gutterClick", this.handleGutterClick);
       });
   },
   methods: {
@@ -140,14 +139,10 @@ export default {
     },
     highlightLine(line) {
       console.log("highlightLine", line);
-      const docPosition2 = this.view.state.doc.line(line).from;
-      this.view.dispatch({ effects: addLineHighlight.of(docPosition2) });
-      this.view.dispatch({
-  selection: { anchor: docPosition2, head: docPosition2 },
-  effects: EditorView.scrollIntoView(docPosition2, {
-    y: 'center',
-})
-});
+      const docPosition = this.view.state.doc.line(line).from;
+      this.view.dispatch({ selection: { anchor: docPosition, head: docPosition }, 
+      effects: [addLineHighlight.of(docPosition), EditorView.scrollIntoView(docPosition, {
+     y: 'center', })] });
     },
     addBreakpoints() {
         this.breakpointsEditor.forEach((l) => {
@@ -175,14 +170,10 @@ export default {
           effects: breakpointEffect.of({ pos: docPosition, on: false }),
       });
     },
-    line() {
-    // if (!this.isNewFile) {
-      console.log("NEXT", this.line)
-      this.highlightLine(this.line)
-    // }
-    },
     file() {
-      console.log("CHANGED", this.file.name);
+      if (this.file.name !== this.curFile.name) {
+      console.log("FILE", this.file);
+      // const docPosition2 = this.view.state.doc.line(this.file.line).from;
       this.parseFile("http://localhost:8003/" + this.file.name)
         .then((response) => response.text())
         .then((txt) => {
@@ -194,17 +185,28 @@ export default {
               this.extensions,
               lineNumbers(),
             ],
-          });
-          this.view.setState(newState);
+          });            
+          this.view.setState(newState)
           if (this.file.line !== undefined) {
+            console.log("HEREE", this.file.line)
+            const docPosition = this.view.state.doc.line(this.file.line).from;
+      this.view.dispatch(this.getCodemirrorStates().state.update({effects: addLineHighlight.of(docPosition)}));
+     this.view.dispatch(this.getCodemirrorStates().state.update({ selection: { anchor: docPosition, head: docPosition }, 
+      effects: [addLineHighlight.of(docPosition), EditorView.scrollIntoView(docPosition, {
+     y: 'center', })] }));
+      }
+      });
+        this.curFile = this.file;
+    } else {
+        if (this.file.line !== undefined) {
           this.highlightLine(this.file.line);
-          }
-          if (this.breakpointsEditor !== undefined) {
-            this.addBreakpoints();
-          }
-        });
-    },
-  },
+      }
+    }
+      if (this.breakpointsEditor !== undefined) {
+          this.addBreakpoints();
+      }
+  }
+},
   setup(props, context) {
     const breakpointGutter = [
   breakpointState,
