@@ -1,13 +1,13 @@
 <template>
   <div class="debug-panel">
     <div id="debugDragHandle" title="drag me">~</div>
-    <span class="continue" @click="continue_" title="continue" />
-    <span class="arrow-left-right" @click="next" :class="{'deactivated': !isActive}" title="next">&#8594;</span>
+    <span class="continue" @click="continue_" title="continue" :class="{'deactivated': !isActive}">&#9658;</span>
+    <span class="arrow-left-right" @click="next" title="next" :class="{'deactivated': !isActive}">&#8594;</span>
     <!-- <span class="arrow-left-right" @click="next" title="next">&#8592;</span>  -->
-    <span class="arrow-down-up" title="step in">&#8595;</span>
-    <span class="arrow-down-up" title="step out">&#8593;</span>
-    <span class="restart" @click="restart" title="restart">&#8635;</span>
-    <span class="stop" @click="stop" title="stop (finish session)" />
+    <span class="arrow-down-up" title="step in" :class="{'deactivated': !isActive}">&#8595;</span>
+    <span class="arrow-down-up" title="step out" :class="{'deactivated': !isActive}">&#8593;</span>
+    <span class="restart" @click="restart" title="restart" :class="{'deactivated': !isActive}">&#8635;</span>
+    <span class="stop" @click="stop" title="stop (finish session)" :class="{'deactivated': !isActive}">&#9632;</span>
   </div>
 </template>
 
@@ -82,13 +82,12 @@ export default {
 }
 
 .continue {
-  margin-right: 10px;
-  margin-bottom: 20px;
-  box-sizing: border-box;
-  border-style: solid;
-  border-width: 12px 0px 12px 25px;
-  background: transparent;
-  border-color: transparent transparent transparent #61afef;
+  height: 100%;
+  color: #61afef;
+  font-size: 60px;
+  margin-bottom: 40px;
+  padding-right: 10px;
+  padding-left: 7px;
   cursor: pointer;
 }
 
@@ -103,10 +102,12 @@ export default {
 }
 
 .stop {
+  height: 100%;
+  font-size: 40px;
   margin-bottom: 15px;
-  border-style: solid;
-  border-width: 12px;
-  border-color: #e06c75;
+  padding-right: 20px;
+  padding-left: 7px;
+  color: #e06c75;
   cursor: pointer;
 }
 </style>
