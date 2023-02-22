@@ -9,7 +9,7 @@
         @stop="stop"
       />
     </div>
-    <button class="add-item" @click="addItem" title="add panel">+</button>
+    <button class="add-item" @click="addPanel" title="add panel">+</button>
   </div>
   <div class="content">
     <grid-layout
@@ -35,13 +35,12 @@
           <div v-if="item.name !== 'editor'" class="panel-header">
             <p class="title">{{ item.name }}</p>
             <div class="delete-container" title="remove">
-              <span class="delete" @click="removeItem(item.i)">x</span>
+              <span class="delete" @click="removePanel(item.i)">x</span>
             </div>
           </div>
           <component
-            v-bind="getProps(item.comp)"
+            v-bind="getProps(item.comp, item.i)"
             v-on="getListeners(item.comp)"
-            :id="item.i"
             v-if="item.isComponent"
             :is="item.comp"
           ></component>
@@ -61,6 +60,7 @@ import BreakpointComp from "./BreakpointComp.vue";
 import LLDBComp from "./LLDBComp.vue";
 import NewComp from "./NewComp.vue";
 import lldbModule from "../lldb";
+import RegistersComp from "./RegistersComp.vue";
 
 const startLayout = [
   {
@@ -99,7 +99,7 @@ const startLayout = [
   {
     x: 6,
     y: 0,
-    w: 2,
+    w: 3,
     h: 8,
     i: "3",
     name: "breakpoints",
@@ -115,6 +115,17 @@ const startLayout = [
     i: "4",
     name: "lldb command",
     comp: "LLDBComp",
+    isResizable: true,
+    isComponent: true,
+  },
+  {
+    x: 0,
+    y: 1,
+    w: 1,
+    h: 8,
+    i: "5",
+    name: "registers",
+    comp: "RegistersComp",
     isResizable: true,
     isComponent: true,
   },
@@ -147,6 +158,7 @@ export default {
     BreakpointComp,
     LLDBComp,
     NewComp,
+    RegistersComp,
   },
   data() {
     return {
@@ -166,6 +178,8 @@ export default {
       breakpointsEditorRemove: null,
       tx_hash: "",
       inst_nr: 0,
+      program_id: '',
+      registers: [],
     };
   },
   async mounted() {
@@ -174,6 +188,7 @@ export default {
     this.LLDB = await this.fetchLLDB();
     this.tx_hash = this.$route.query.tx_hash;
     this.inst_nr = this.$route.query.inst_nr;
+    this.program_id = this.$route.query.program_id;
     console.log(this.$route.query);
     await this.getTree(this.$route.query.program_id);
     await this.loadElf(this.$route.query.program_id);
@@ -191,10 +206,10 @@ export default {
     await this.updateEditor();
   },
   methods: {
-    getProps(comp) {
+    getProps(comp, id) {
       switch(comp) {
         case 'EditorComponent':
-          return {file: this.file, breakpointsEditor: this.breakpointsEditor, breakpointsEditorRemove: this.breakpointsEditorRemove};
+          return {program_id: this.program_id, file: this.file, breakpointsEditor: this.breakpointsEditor, breakpointsEditorRemove: this.breakpointsEditorRemove};
         case 'TreeNode':
           return {node: this.tree, focus: this.focus};
         case 'DisassemblyComp':
@@ -203,6 +218,10 @@ export default {
           return {breakpoints: this.breakpoints};
         case 'LLDBComp':
           return {executeLLDBCommand: this.executeLLDBCommand};
+        case 'NewComp':
+          return {id: id};  
+        case 'RegistersComp':
+          return {registers: this.registers};
         default:
           return {};
       }
@@ -232,18 +251,18 @@ export default {
       });
     },
     // Components
-    removeItem(val) {
-      const index = this.layout.findIndex((item) => item.i === val);
+    removePanel(id) {
+      const index = this.layout.findIndex((item) => item.i === id);
       this.layout.splice(index, 1);
     },
-    addItem() {
+    addPanel() {
       this.layout.push({
         x: 2,
         y: 1,
         w: 3,
         h: 10,
         i: this.index,
-        name: "new",
+        name: "add panel",
         comp: "NewComp",
         isResizable: true,
         isComponent: true,
@@ -252,7 +271,9 @@ export default {
     },
     choseComp(id, comp) {
       console.log("chose", id, comp);
-      this.layout[id].comp = comp;
+      const index = this.layout.findIndex((item) => item.i === id);
+      this.layout[index].comp = comp.name;
+      this.layout[index].name = comp.title;
     },
     // LLDB commands
     async loadElf(program_id) {
@@ -356,15 +377,31 @@ export default {
       this.load_file(file["name"]);
       this.file = file;
       await this.disassemble();
+      const registers = [{name: 'r0', value: '0x0'}, {name: 'r1', value: '0x1'}];
+      this.registers = registers;
+      console.log("update editor done");
     },
-
+    // async getRegisters() {
+    //   let resPtr = await this.LLDB.ccall(
+    //     "execute_command",
+    //     "number",
+    //     ["string"],
+    //     ["register read"]
+    //   );
+    //   let registers = this.LLDB.UTF8ToString(resPtr);
+    //   registers = registers.split("");
+    //   console.log("reg", registers);
+    //   this.registers = [];
+    //   this.LLDB._free(resPtr);
+    // },
     async disassemble() {
-      let res = await this.LLDB.ccall(
+      let resPtr = await this.LLDB.ccall(
         "execute_command",
-        "string",
+        "number",
         ["string"],
         ["disassemble -p -b -c 7"]
       );
+      let res = this.LLDB.UTF8ToString(resPtr);
       console.log("dis", res.split("\n"));
       res = res.split("\n").slice(1);
       res[0] = res[0].slice(3); // Remove leading arrow
@@ -380,17 +417,18 @@ export default {
         }
       }
       this.disData = data;
+      this.LLDB._free(resPtr);
     },
 
     sanitizeFileName(fileName) {
       if (fileName.includes("solana-program-1.10.33")) {
         fileName =
-          "code/sdk/program/" + fileName.split("solana-program-1.10.33/")[1];
+          "code/sdk/solana-program-1.10.33/" + fileName.split("solana-program-1.10.33/")[1];
       } else if (fileName.includes("rust-own")) {
         fileName =
           "code/rust-solana-1.59.0/" + fileName.split("rust-own/rust/")[1];
-      } else if (fileName.includes("program-rust")) {
-        fileName = "code/" + fileName.split("program-rust/")[1];
+      } else if (fileName.includes("associated-token-account/program")) {
+        fileName = "code/program/" + fileName.split("associated-token-account/program/")[1];
       }
       console.log("sanitized:", fileName);
       return fileName;
@@ -545,7 +583,7 @@ body {
 
 .delete-container {
   position: absolute;
-  right: 2px;
+  right: 10px;
   top: 0;
   cursor: pointer;
 }
@@ -555,7 +593,7 @@ body {
   color: #e0e4e6;
   font-weight: bold;
   font-size: 1.2em;
-  width: 50px;
+  width: 150px;
 }
 
 .switch-container {

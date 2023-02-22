@@ -4,7 +4,8 @@
       v-for="comp in components"
       :key="comp.i"
       class="choose-comp"
-      @click="choseComponent(comp.name)"
+      @click="choseComponent(comp)"
+      :class="{ 'deactivated': comp.name === 'CallGraphComp' }"
     >
       {{ comp.title }}
     </li>
@@ -12,11 +13,6 @@
 </template>
 
 <script>
-// import TreeNode from "./TreeNode.vue";
-// import DisassemblyComp from "./DisassemblyComp.vue";
-// import BreakpointComp from "./BreakpointComp.vue";
-// import LLDBComp from "./LLDBComp.vue";
-
 const components = [
   {
     i: 0,
@@ -38,6 +34,21 @@ const components = [
     title: "lldb command",
     name: "LLDBComp",
   },
+  {
+    i: 4,
+    title: "registers",
+    name: "RegistersComp",
+  },
+  {
+    i: 5,
+    title: "variables",
+    name: "VariablesComp",
+  },
+  {
+    i: 6,
+    title: "call graph",
+    name: "CallGraphComp",
+  },
 ];
 
 export default {
@@ -50,6 +61,9 @@ export default {
   },
   methods: {
     choseComponent(comp) {
+      if (comp.name === "CallGraphComp") {
+        return;
+      }
       this.$emit("choseComp", this.id, comp);
     },
   },

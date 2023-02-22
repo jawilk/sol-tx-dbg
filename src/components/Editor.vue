@@ -107,6 +107,7 @@ export default {
     Codemirror,
   },
   props: {
+    program_id: String,
     file: Object,
     breakpointsEditor: Object,
     breakpointsEditorRemove: null,
@@ -140,9 +141,9 @@ export default {
     highlightLine(line) {
       console.log("highlightLine", line);
       const docPosition = this.view.state.doc.line(line).from;
-      this.view.dispatch({ selection: { anchor: docPosition, head: docPosition }, 
+      this.view.dispatch(this.getCodemirrorStates().state.update({ selection: { anchor: docPosition, head: docPosition }, 
       effects: [addLineHighlight.of(docPosition), EditorView.scrollIntoView(docPosition, {
-     y: 'center', })] });
+     y: 'center', })] }));
     },
     addBreakpoints() {
         this.breakpointsEditor.forEach((l) => {
@@ -173,8 +174,7 @@ export default {
     file() {
       if (this.file.name !== this.curFile.name) {
       console.log("FILE", this.file);
-      // const docPosition2 = this.view.state.doc.line(this.file.line).from;
-      this.parseFile("http://localhost:8003/" + this.file.name)
+      this.parseFile("http://localhost:8003/code/" + this.program_id + '/' + this.file.name)
         .then((response) => response.text())
         .then((txt) => {
           let newState = EditorState.create({
@@ -189,11 +189,7 @@ export default {
           this.view.setState(newState)
           if (this.file.line !== undefined) {
             console.log("HEREE", this.file.line)
-            const docPosition = this.view.state.doc.line(this.file.line).from;
-      this.view.dispatch(this.getCodemirrorStates().state.update({effects: addLineHighlight.of(docPosition)}));
-     this.view.dispatch(this.getCodemirrorStates().state.update({ selection: { anchor: docPosition, head: docPosition }, 
-      effects: [addLineHighlight.of(docPosition), EditorView.scrollIntoView(docPosition, {
-     y: 'center', })] }));
+            this.highlightLine(this.file.line);
       }
       });
         this.curFile = this.file;
