@@ -44,7 +44,7 @@ export default {
 }
 .debug-panel {
   top: 5px;
-  left: 25%;
+  left: 23%;
   position: absolute;
   background-color: transparent;
   width: 200px;
@@ -67,7 +67,7 @@ export default {
 
 .arrow-left-right {
   color: #61afef;
-  font-size: 50px;
+  font-size: 40px;
   margin-bottom: 10px;
   cursor: pointer;
 }
@@ -75,7 +75,7 @@ export default {
 .arrow-down-up {
   pointer-events: none;
   color: #858585;
-  font-size: 40px;
+  font-size: 30px;
   cursor: pointer;
   padding: 15px;
   margin-bottom: 10px;
@@ -84,7 +84,7 @@ export default {
 .continue {
   height: 100%;
   color: #61afef;
-  font-size: 60px;
+  font-size: 50px;
   margin-bottom: 40px;
   padding-right: 10px;
   padding-left: 7px;
@@ -94,7 +94,7 @@ export default {
 .restart {
   height: 100%;
   color: #98c379;
-  font-size: 40px;
+  font-size: 30px;
   margin-bottom: 20px;
   padding-right: 20px;
   padding-left: 7px;
@@ -103,7 +103,7 @@ export default {
 
 .stop {
   height: 100%;
-  font-size: 40px;
+  font-size: 30px;
   margin-bottom: 15px;
   padding-right: 20px;
   padding-left: 7px;

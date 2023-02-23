@@ -35,7 +35,7 @@
 
 .dis-table {
   color: #E0E4E6;
-  font-size: 1.2em;
+  font-size: 13px;
 }
 
 .dis-background {

@@ -81,6 +81,7 @@ export default {
     color: #E0E4E6;
     overflow: hidden;
     border-style: none;
+    font-size: 11px;
   }
 
   .nodeheader {

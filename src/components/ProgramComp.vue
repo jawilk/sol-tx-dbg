@@ -65,7 +65,7 @@ import RegistersComp from "./RegistersComp.vue";
 const startLayout = [
   {
     x: 1,
-    y: 1,
+    y: 0,
     w: 5,
     h: 20,
     i: "0",
@@ -89,7 +89,7 @@ const startLayout = [
     x: 6,
     y: 0,
     w: 3,
-    h: 8,
+    h: 6,
     i: "2",
     name: "disassembly",
     comp: "DisassemblyComp",
@@ -100,7 +100,7 @@ const startLayout = [
     x: 6,
     y: 0,
     w: 3,
-    h: 8,
+    h: 6,
     i: "3",
     name: "breakpoints",
     comp: "BreakpointComp",
@@ -119,10 +119,10 @@ const startLayout = [
     isComponent: true,
   },
   {
-    x: 0,
-    y: 1,
-    w: 1,
-    h: 8,
+    x: 9,
+    y: 0,
+    w: 2,
+    h: 9,
     i: "5",
     name: "registers",
     comp: "RegistersComp",
@@ -178,7 +178,7 @@ export default {
       breakpointsEditorRemove: null,
       tx_hash: "",
       inst_nr: 0,
-      program_id: '',
+      program_id: "",
       registers: [],
     };
   },
@@ -207,35 +207,43 @@ export default {
   },
   methods: {
     getProps(comp, id) {
-      switch(comp) {
-        case 'EditorComponent':
-          return {program_id: this.program_id, file: this.file, breakpointsEditor: this.breakpointsEditor, breakpointsEditorRemove: this.breakpointsEditorRemove};
-        case 'TreeNode':
-          return {node: this.tree, focus: this.focus};
-        case 'DisassemblyComp':
-          return {disData: this.disData};
-        case 'BreakpointComp':
-          return {breakpoints: this.breakpoints};
-        case 'LLDBComp':
-          return {executeLLDBCommand: this.executeLLDBCommand};
-        case 'NewComp':
-          return {id: id};  
-        case 'RegistersComp':
-          return {registers: this.registers};
+      switch (comp) {
+        case "EditorComponent":
+          return {
+            program_id: this.program_id,
+            file: this.file,
+            breakpointsEditor: this.breakpointsEditor,
+            breakpointsEditorRemove: this.breakpointsEditorRemove,
+          };
+        case "TreeNode":
+          return { node: this.tree, focus: this.focus };
+        case "DisassemblyComp":
+          return { disData: this.disData };
+        case "BreakpointComp":
+          return { breakpoints: this.breakpoints };
+        case "LLDBComp":
+          return { executeLLDBCommand: this.executeLLDBCommand };
+        case "NewComp":
+          return { id: id };
+        case "RegistersComp":
+          return { registers: this.registers };
         default:
           return {};
       }
     },
     getListeners(comp) {
-      switch(comp) {
-        case 'EditorComponent':
-          return {['breakpoint']: this.breakpoint};
-        case 'TreeNode':
-          return {['changeFile']: this.changeFile, ['toggleFolder']: this.toggleFolder};
-        case 'BreakpointComp':
-          return {['deleteBreakpoint']: this.deleteBreakpoint};
-        case 'NewComp':
-          return {['choseComp']: this.choseComp};
+      switch (comp) {
+        case "EditorComponent":
+          return { ["breakpoint"]: this.breakpoint };
+        case "TreeNode":
+          return {
+            ["changeFile"]: this.changeFile,
+            ["toggleFolder"]: this.toggleFolder,
+          };
+        case "BreakpointComp":
+          return { ["deleteBreakpoint"]: this.deleteBreakpoint };
+        case "NewComp":
+          return { ["choseComp"]: this.choseComp };
         default:
           return {};
       }
@@ -328,6 +336,13 @@ export default {
       this.LLDB._free(res);
       await this.updateEditor();
       this.isActive = true;
+      await this.LLDB.ccall(
+        "set_cpi",
+        "number",
+        ["string"],
+        ["http://localhost:8081/program/?cpi=" + this.program_id]
+      );
+      await this.LLDB.ccall("request_vue_data");
     },
     async continue_() {
       this.isActive = false;
@@ -377,23 +392,30 @@ export default {
       this.load_file(file["name"]);
       this.file = file;
       await this.disassemble();
-      const registers = [{name: 'r0', value: '0x0'}, {name: 'r1', value: '0x1'}];
-      this.registers = registers;
+      await this.getRegisters();
       console.log("update editor done");
     },
-    // async getRegisters() {
-    //   let resPtr = await this.LLDB.ccall(
-    //     "execute_command",
-    //     "number",
-    //     ["string"],
-    //     ["register read"]
-    //   );
-    //   let registers = this.LLDB.UTF8ToString(resPtr);
-    //   registers = registers.split("");
-    //   console.log("reg", registers);
-    //   this.registers = [];
-    //   this.LLDB._free(resPtr);
-    // },
+    async getRegisters() {
+      let resPtr = await this.LLDB.ccall(
+        "execute_command",
+        "number",
+        ["string"],
+        ["register read"]
+      );
+      let registers = this.LLDB.UTF8ToString(resPtr);
+      let registersParsed = [];
+      let regex = /(\w+)\s=\s(0x[\dA-Fa-f]+)/g;
+      let match = regex.exec(registers);
+      let count = 0;
+      while (match !== null) {
+        registersParsed.push({ id: count, name: match[1], value: match[2] });
+        match = regex.exec(registers);
+        count++;
+      }
+      console.log("reg", registersParsed);
+      this.registers = registersParsed;
+      this.LLDB._free(resPtr);
+    },
     async disassemble() {
       let resPtr = await this.LLDB.ccall(
         "execute_command",
@@ -423,12 +445,15 @@ export default {
     sanitizeFileName(fileName) {
       if (fileName.includes("solana-program-1.10.33")) {
         fileName =
-          "code/sdk/solana-program-1.10.33/" + fileName.split("solana-program-1.10.33/")[1];
+          "code/sdk/solana-program-1.10.33/" +
+          fileName.split("solana-program-1.10.33/")[1];
       } else if (fileName.includes("rust-own")) {
         fileName =
           "code/rust-solana-1.59.0/" + fileName.split("rust-own/rust/")[1];
       } else if (fileName.includes("associated-token-account/program")) {
-        fileName = "code/program/" + fileName.split("associated-token-account/program/")[1];
+        fileName =
+          "code/program/" +
+          fileName.split("associated-token-account/program/")[1];
       }
       console.log("sanitized:", fileName);
       return fileName;
@@ -592,7 +617,7 @@ body {
   margin-top: 0;
   color: #e0e4e6;
   font-weight: bold;
-  font-size: 1.2em;
+  font-size: 14px;
   width: 150px;
 }
 
@@ -724,7 +749,7 @@ input:checked + .slider:before {
 }
 
 .vue-grid-item .text {
-  font-size: 24px;
+  font-size: 14px;
   text-align: center;
   position: absolute;
   top: 0;

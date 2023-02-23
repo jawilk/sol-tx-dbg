@@ -40,6 +40,7 @@
   .output {
     margin-top: 20px;
     color: #E0E4E6;
+    font-size: 13px;
   }
 </style>
   

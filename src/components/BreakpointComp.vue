@@ -66,11 +66,6 @@
   padding-right: 190px;
 }
 
-.dis-table {
-  color: #E0E4E6;
-  font-size: 1.2em;
-}
-
 .yellow-background {
   background-color: #595910;
 }

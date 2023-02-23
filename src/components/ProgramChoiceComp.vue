@@ -9,8 +9,8 @@
                 Program Name: {{program.program_info ? program.program_info.name : "Unknown"}}<br><br>
                 is_supported: {{program.is_supported}}<br><br>
             </div>
-            <button v-if="!program.is_supported" type="submit" class="startBtnDis">Not supported</button> 
-            <button @click="startDebugger(index)" v-if="program.is_supported" type="submit" class="startBtn">Start</button> 
+            <button v-if="!program.is_supported" type="submit" class="startBtnDis">not supported</button> 
+            <button @click="startDebugger(index)" v-if="program.is_supported" type="submit" class="startBtn">replay</button> 
         </div>
     </div>
       </template>
@@ -48,7 +48,7 @@
         height: 20px;
         margin-top: 80px;
         margin-bottom: 20px;
-        font-size: 20px;
+        font-size: 14px;
         text-align: center;
         color: #E0E4E6;
     }
