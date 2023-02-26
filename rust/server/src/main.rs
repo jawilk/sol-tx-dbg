@@ -1,13 +1,21 @@
 #[macro_use]
 extern crate rocket;
 
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write;
+use std::str::FromStr;
+use std::sync::Mutex;
+
 use lazy_static::lazy_static;
 
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
 use rocket::{Request, Response};
 
+use rocket::http::RawStr;
 use rocket::request::FromParam;
+
 use rocket::serde::json::{json, Value};
 use rocket::serde::Serialize;
 
@@ -18,63 +26,53 @@ use solana_sdk::signature::Signature;
 use solana_transaction_status::EncodedTransaction;
 use solana_transaction_status::UiTransactionEncoding;
 
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::sync::Mutex;
+use uuid::Uuid;
 
 const SUPPORTED_PROGRAMS: [&'static str; 1] = ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"];
 lazy_static! {
-    static ref SUPPORTED_PROGRAMS_INFO: Mutex<HashMap<&'static str, ProgramMeta>> = {
+    static ref SUPPORTED_PROGRAMS_INFO: Mutex<HashMap<&'static str, String>> = {
         let mut m = HashMap::new();
         m.insert(
             SUPPORTED_PROGRAMS[0],
-            ProgramMeta {
-                name: "Associated Token Program",
-            },
+            String::from("Associated Token Program"),
         );
         Mutex::new(m)
     };
 }
 
-struct TxHash {
-    hash: String,
-}
+struct TxHash(String);
 
-#[derive(Debug)]
-enum TxHashError {
-    Invalid,
-}
+impl<'a> FromParam<'a> for TxHash {
+    type Error = &'static str;
 
-impl<'r> FromParam<'r> for TxHash {
-    type Error = TxHashError;
-    fn from_param(param: &'r str) -> Result<Self, Self::Error> {
+    fn from_param(param: &'a str) -> Result<Self, Self::Error> {
         match Signature::from_str(&param) {
-            Ok(_) => Ok(TxHash {
-                hash: param.to_string(),
+            Ok(_) => Ok(Self {
+                0: param.to_string(),
             }),
-            _ => Err(TxHashError::Invalid),
+            Err(_) => Err("invalid TxHash"),
         }
     }
 }
 
-#[derive(Serialize, Copy, Clone)]
+#[derive(Serialize, Clone)]
 #[serde(crate = "rocket::serde")]
 struct ProgramMeta {
-    name: &'static str,
+    name: Option<String>,
+    program_id: String,
+    is_supported: bool,
 }
 
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
 struct InitResponse {
-    is_supported: bool,
-    program_info: Option<ProgramMeta>,
-    program_id: String,
     /// To identify the request (i.e. account data etc.)
-    tx_id: String,
+    uuid: String,
+    program_metas: Vec<ProgramMeta>,
 }
 
-fn get_tx_info(tx_hash_str: &str) -> Vec<InitResponse> {
-    let mut programs = vec![];
+fn get_tx_info(tx_hash_str: &str) -> InitResponse {
+    let mut program_metas = vec![];
     let rpc_client = RpcClient::new("https://api.mainnet-beta.solana.com".to_string());
     let config = RpcTransactionConfig {
         encoding: Some(UiTransactionEncoding::Json),
@@ -88,36 +86,49 @@ fn get_tx_info(tx_hash_str: &str) -> Vec<InitResponse> {
         .transaction
         .transaction;
     if let EncodedTransaction::Json(tx) = tx {
+        // Save tx to disk to access later from POC
+        let data = serde_json::to_vec(&tx).unwrap();
+        match File::create(format!("../transactions/{tx_hash_str}.json")) {
+            Ok(mut file) => file.write_all(&data).unwrap(),
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::AlreadyExists => (),
+                _ => panic!("Error create file {:?}", e),
+            },
+        };
+
         if let solana_transaction_status::UiMessage::Raw(message) = tx.message {
             for inst in message.instructions {
                 let program_id = message.account_keys[inst.program_id_index as usize].clone();
                 let is_supported = SUPPORTED_PROGRAMS.iter().any(|&p| p == program_id);
-                programs.push(InitResponse {
-                    is_supported,
-                    program_info: if is_supported {
+                program_metas.push(ProgramMeta {
+                    name: if is_supported {
                         Some(
-                            *SUPPORTED_PROGRAMS_INFO
+                            SUPPORTED_PROGRAMS_INFO
                                 .lock()
                                 .unwrap()
                                 .get(&*program_id)
-                                .unwrap(),
+                                .unwrap()
+                                .clone(),
                         )
                     } else {
                         None
                     },
                     program_id,
-                    tx_id: tx_hash_str.to_string(),
+                    is_supported,
                 });
             }
         }
     }
-    programs
+    InitResponse {
+        uuid: Uuid::new_v4().to_string(),
+        program_metas,
+    }
 }
 
 #[get("/init/<tx_hash>")]
 fn init(tx_hash: TxHash) -> Value {
-    println!("hash here: {} {}", tx_hash.hash, tx_hash.hash.len());
-    json!(get_tx_info(&tx_hash.hash))
+    println!("hash here: {} {}", tx_hash.0, tx_hash.0.len());
+    json!(get_tx_info(&tx_hash.0))
 }
 
 #[launch]
