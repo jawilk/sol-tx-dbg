@@ -1,103 +1,148 @@
 <template>
-    <div class="program-choice-header">
-        <p>This transaction contains <span style="color:#98c379">{{ instData.length }}</span> instructions with program invocations. Please choose:</p>
-        </div>  
-    <div class="program-view">
-        <div class="program" v-for="(program, index) in instData" :key="index">
-            <div class="program-info">
-                Program ID: {{program.program_id}}<br><br>
-                Program Name: {{program.program_info ? program.program_info.name : "Unknown"}}<br><br>
-                is_supported: {{program.is_supported}}<br><br>
-            </div>
-            <button v-if="!program.is_supported" type="submit" class="startBtnDis">not supported</button> 
-            <button @click="startDebugger(index)" v-if="program.is_supported" type="submit" class="startBtn">replay</button> 
-        </div>
+  <div class="program-choice-header">
+    <p>
+      This transaction contains
+      <span style="color: #98c379">{{ instData.length }}</span> instructions.
+      Please choose:
+    </p>
+  </div>
+  <div class="program-view">
+    <div class="program-wrap" v-for="(program, index) in instData" :key="index">
+      <div class="program">
+      <div class="program-header">{{ index }}</div>
+      <div class="program-info">
+        Program ID: {{ program.program_id }}<br /><br />
+        Program Name: {{ program.name ? program.name : "Unknown" }}<br /><br />
+        is_supported: {{ program.is_supported }}<br /><br />
+        <button
+          v-if="!program.is_supported"
+          type="submit"
+          class="chooseBtn startBtnDis"
+        >
+          not supported
+        </button>
+        <button
+          @click="startDebugger(index)"
+          v-if="program.is_supported"
+          type="submit"
+          class="chooseBtn"
+        >
+          replay
+        </button>
+      </div>
+      </div>  
     </div>
-      </template>
+  </div>
+</template>
   
       <script>
-  
-      export default {
-        name: 'ProgramChoiceComp',
-        data() {
-          return {
-            txHash: '',
-            instData: [],
-          };
+export default {
+  name: "ProgramChoiceComp",
+  data() {
+    return {
+      uuid: "",
+      instData: [],
+    };
+  },
+  async mounted() {
+    console.log("query new tx", this.$route.query);
+    this.tx_hash = this.$route.query.txHash;
+    const response = await fetch("http://localhost:8000/init/" + this.tx_hash);
+    const responseJson = await response.json();
+    this.uuid = responseJson.uuid;
+    this.instData = responseJson.program_metas;
+    console.log(this.instData, this.uuid);
+  },
+  methods: {
+    startDebugger(index) {
+      console.log(
+        "start debugger",
+        this.instData[index].program_id + "_" + this.uuid
+      );
+      this.$router.push({
+        name: "program",
+        query: {
+          inst_nr: index.toString(),
+          program_id: this.instData[index].program_id,
+          uuid: this.uuid,
+          tx_hash: this.tx_hash,
+          program_name: this.instData[index].name,
         },
-        async mounted() {
-          this.txHash = this.$route.query.txHash;
-          console.log("query new tx",this.$route.query);
-          const response = await fetch("http://localhost:8000/init/" + this.txHash);
-          const instData = await response.json();
-          console.log(instData);
-          this.instData = instData;
-        },
-        methods: {
-          startDebugger(index) {
-            console.log("start debugger", this.txHash+'_'+this.instData[index].program_id);
-            this.$router.push({name: "program", query: {tx_hash: this.txHash, inst_nr: index.toString(), program_id: this.instData[index].program_id}});
-          },
-        }
-      };
-      </script>
+      });
+    },
+  },
+};
+</script>
   
   <style>
-    .program-choice-header {
-        width: 100%;
-        height: 20px;
-        margin-top: 80px;
-        margin-bottom: 20px;
-        font-size: 14px;
-        text-align: center;
-        color: #E0E4E6;
-    }
+  .program-choice-header {
+  width: 100%;
+  height: 40px;
+  margin-top: 80px;
+  font-size: 15px;
+  color: #e0e4e6;
+  text-align: center;
+  }
+
 
   .program-view {
-    margin-top: 40px;
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    color: #E0E4E6;
-  }
+  margin-top: 40px;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-end;
+  width: 100%;
+  color: #e0e4e6;
+}
 
-  .program {
-    position: relative;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    margin-right: 50px;
-    width: 400px;
-    height: 600px;
-    background: #201c1c;
-    border-color: #30363d;
-    border-style: solid;
-    border-radius: 6px;
-    border-width: 1px;
-    overflow: scroll;
-  }
+.program {
+  width: 400px;
+  height: 600px;
+  display: flex;
+  background: #201c1c;
+  overflow: scroll;
+  border-radius: 6px;
 
-  .program-info {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    font-size: 20px;
-  }
+}
 
-  .startBtn  {
-    width: 100px;
-    height: 100px;
-    position: absolute;
-    cursor: pointer;
-    bottom: 10px;
-  }
+.program-wrap {
+  margin-right: 20px;
+  position: relative;
+  background: linear-gradient(90deg,#9945ff 38.82%,#9945ff 0,#14f195 64.82%);
+  padding: 1px;
+  border-radius: 6px;
+  border-width: 1em;
+}
 
-  .startBtnDis {
-    width: 100px;
-    height: 100px;
-    position: absolute;
-    bottom: 10px;
-    color: #858585 !important;
-    cursor: not-allowed !important;
-  }
-  </style>
+.program-header {
+  height: 20px;
+  font-size: 14px;
+  text-align: center;
+  color: #e0e4e6;
+}
+
+.program-info {
+  margin: auto;
+}
+
+.chooseBtn {
+  width: 100px;
+  height: 100px;
+  position: relative;
+  margin: auto;
+}
+
+.startBtn {
+  width: 100px;
+  height: 100px;
+  position: absolute;
+  cursor: pointer;
+  bottom: 10px;
+}
+
+.startBtnDis {
+  color: #858585 !important;
+  cursor: not-allowed !important;
+}
+</style>

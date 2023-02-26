@@ -9,7 +9,10 @@
         @stop="stop"
       />
     </div>
-    <button class="add-item" @click="addPanel" title="add panel">+</button>
+    <span class="add-wrap">
+      <button class="add-item" @click="addPanel" title="add panel">+</button>
+    </span>
+    <p class="program-name" :title="program_id">{{ program_name }}</p>
   </div>
   <div class="content">
     <grid-layout
@@ -51,6 +54,7 @@
 </template>
 
 <script>
+import * as bs58 from "bs58";
 import AddBtn from "./AddBtn.vue";
 import EditorComponent from "./Editor.vue";
 import DebugPanel from "./DebugPanel.vue";
@@ -61,6 +65,7 @@ import LLDBComp from "./LLDBComp.vue";
 import NewComp from "./NewComp.vue";
 import lldbModule from "../lldb";
 import RegistersComp from "./RegistersComp.vue";
+import VariablesComp from "./VariablesComp.vue";
 
 const startLayout = [
   {
@@ -87,7 +92,7 @@ const startLayout = [
   },
   {
     x: 6,
-    y: 0,
+    y: 1,
     w: 3,
     h: 6,
     i: "2",
@@ -97,8 +102,8 @@ const startLayout = [
     isComponent: true,
   },
   {
-    x: 6,
-    y: 0,
+    x: 9,
+    y: 1,
     w: 3,
     h: 6,
     i: "3",
@@ -108,8 +113,8 @@ const startLayout = [
     isComponent: true,
   },
   {
-    x: 6,
-    y: 3,
+    x: 8,
+    y: 2,
     w: 3,
     h: 8,
     i: "4",
@@ -119,13 +124,24 @@ const startLayout = [
     isComponent: true,
   },
   {
-    x: 9,
-    y: 0,
+    x: 6,
+    y: 2,
     w: 2,
     h: 9,
     i: "5",
     name: "registers",
     comp: "RegistersComp",
+    isResizable: true,
+    isComponent: true,
+  },
+  {
+    x: 6,
+    y: 0,
+    w: 6,
+    h: 7,
+    i: "6",
+    name: "variables",
+    comp: "VariablesComp",
     isResizable: true,
     isComponent: true,
   },
@@ -159,9 +175,13 @@ export default {
     LLDBComp,
     NewComp,
     RegistersComp,
+    VariablesComp,
   },
   data() {
     return {
+      files_url: "http://localhost:8005/",
+      websocket_url: "ws://localhost:9007/?token=",
+      cpi_url: "http://localhost:8085/program/?uuid=",
       LLDB: null,
       layout: startLayout,
       index: 0,
@@ -176,22 +196,49 @@ export default {
       breakpoints: {},
       breakpointsEditor: [],
       breakpointsEditorRemove: null,
+      uuid: "",
       tx_hash: "",
       inst_nr: 0,
       program_id: "",
       registers: [],
+      variables: [],
+      is_cpi: false,
+      program_name: "",
     };
   },
   async mounted() {
+    console.log(this.$route.query);
     // vue-grid-layout
     this.index = this.layout.length;
+    // instantiate lldb.wasm
     this.LLDB = await this.fetchLLDB();
-    this.tx_hash = this.$route.query.tx_hash;
-    this.inst_nr = this.$route.query.inst_nr;
+    // query params
+    this.uuid = this.$route.query.uuid;
     this.program_id = this.$route.query.program_id;
-    console.log(this.$route.query);
-    await this.getTree(this.$route.query.program_id);
-    await this.loadElf(this.$route.query.program_id);
+    if (this.$route.query.program_name) {
+      this.program_name = this.$route.query.program_name;
+    } else {
+      this.program_name = this.program_id;
+    }
+    console.log("name", this.program_name);
+    if (!this.$route.query.tx_hash) {
+      console.log("IS CPI");
+      this.is_cpi = true;
+      this.LLDB["websocket"]["url"] = this.websocket_url + this.uuid;
+    } else {
+      console.log("NO CPI");
+      this.tx_hash = this.$route.query.tx_hash;
+      this.inst_nr = this.$route.query.inst_nr;
+      this.LLDB["websocket"]["url"] =
+        this.websocket_url +
+        this.uuid +
+        "&tx_hash=" +
+        this.tx_hash +
+        "&inst_nr=" +
+        this.inst_nr;
+    }
+    await this.getTree();
+    await this.loadElf();
     // CPI
     let res = await this.LLDB.ccall(
       "execute_command",
@@ -200,9 +247,11 @@ export default {
       ["b solana_program::program::invoke_signed_unchecked"]
     );
     await this.LLDB._free(res);
+    // connect to vm
     await this.connect();
-    console.log("mounted");
     this.isActive = true;
+    console.log("mounted");
+    // update panels
     await this.updateEditor();
   },
   methods: {
@@ -210,6 +259,7 @@ export default {
       switch (comp) {
         case "EditorComponent":
           return {
+            files_url: this.files_url,
             program_id: this.program_id,
             file: this.file,
             breakpointsEditor: this.breakpointsEditor,
@@ -227,6 +277,8 @@ export default {
           return { id: id };
         case "RegistersComp":
           return { registers: this.registers };
+        case "VariablesComp":
+          return { variables: this.variables };
         default:
           return {};
       }
@@ -249,10 +301,11 @@ export default {
       }
     },
     async fetchLLDB() {
+      const wasm_url = this.files_url + "lldb.wasm";
       return new lldbModule({
         locateFile(path) {
           if (path.endsWith(`.wasm`)) {
-            return "http://localhost:8003/lldb.wasm";
+            return wasm_url;
           }
           return path;
         },
@@ -278,30 +331,23 @@ export default {
       this.index++;
     },
     choseComp(id, comp) {
-      console.log("chose", id, comp);
       const index = this.layout.findIndex((item) => item.i === id);
       this.layout[index].comp = comp.name;
       this.layout[index].name = comp.title;
     },
     // LLDB commands
-    async loadElf(program_id) {
+    async loadElf() {
       var data = await fetch(
-        "http://localhost:8003/elfs/" + program_id + ".so"
+        this.files_url + "elfs/" + this.program_id + ".so"
       );
+      const file_name = this.program_id + ".so";
       data = await data["arrayBuffer"]();
       console.log(data);
-      this.LLDB.FS.writeFile("program.so", new Uint8Array(data));
-      let res = this.LLDB.ccall(
-        "create_target",
-        null,
-        ["string"],
-        ["program.so"]
-      );
+      this.LLDB.FS.writeFile(file_name, new Uint8Array(data));
+      let res = this.LLDB.ccall("create_target", null, ["string"], [file_name]);
       this.LLDB._free(res);
     },
     async connect() {
-      this.LLDB["websocket"]["url"] =
-        "ws://localhost:9007/?token=" + this.tx_hash + "_" + this.inst_nr;
       const res = await this.LLDB.ccall(
         "execute_command",
         "number",
@@ -322,32 +368,54 @@ export default {
       this.LLDB._free(resPtr);
       return lldbOutput;
     },
+    async handleCpi() {
+      await this.updateEditor();
+      const pubkeyArr = await this.LLDB.ccall(
+        "request_cpi_program_id",
+        "number",
+        [],
+        []
+      );
+      const pubkey = bs58.encode(
+        new Uint8Array(this.LLDB.HEAPU8.buffer, pubkeyArr, 32)
+      );
+      console.log("request_cpi_program_id: ", pubkey);
+      const url = this.cpi_url + this.uuid + "&program_id=" + pubkey;
+      window.open(url);
+      // This will block till cpi finished
+      await this.LLDB.ccall("request_next_with_cpi", "boolean", [], []);
+      console.log("CPI finished");
+    },
     // Debug Panel
     async next() {
       this.isActive = false;
-      console.log("next");
-      // await this.LLDB.ccall("request_next_with_cpi", null, [], []);
-      const res = await this.LLDB.ccall(
-        "execute_command",
-        "number",
-        ["string"],
-        ["next"]
+      console.log("request_next_with_cpi");
+      const is_before_cpi = await this.LLDB.ccall(
+        "request_next_with_cpi",
+        "boolean",
+        [],
+        []
       );
-      this.LLDB._free(res);
+      // CPI
+      if (is_before_cpi === true) {
+        await this.handleCpi();
+      }
       await this.updateEditor();
       this.isActive = true;
-      await this.LLDB.ccall(
-        "set_cpi",
-        "number",
-        ["string"],
-        ["http://localhost:8081/program/?cpi=" + this.program_id]
-      );
-      await this.LLDB.ccall("request_vue_data");
     },
     async continue_() {
       this.isActive = false;
       console.log("continue");
-      await this.LLDB.ccall("request_continue", null, [], []);
+      const is_before_cpi = await this.LLDB.ccall(
+        "request_continue_with_cpi",
+        "boolean",
+        [],
+        []
+      );
+      // CPI
+      if (is_before_cpi === true) {
+        await this.handleCpi();
+      }
       this.updateEditor();
       this.isActive = true;
     },
@@ -362,6 +430,26 @@ export default {
       this.updateEditor();
     },
     // Update
+    async LLDBRequest(request, name) {
+      const requestStr = JSON.stringify(request);
+      console.log("LLDBRequest", requestStr);
+      let txPtr = await this.LLDB._malloc(requestStr.length + 1);
+      await this.LLDB.stringToUTF8(requestStr, txPtr, requestStr.length + 1);
+      const rxPtr = await this.LLDB.ccall(
+        name,
+        "number",
+        ["number"],
+        [txPtr]
+      );
+      const responseStr = await this.LLDB.UTF8ToString(rxPtr);
+      let responseJSON = JSON.parse(responseStr);
+      console.log("response", responseJSON);
+      this.seqId++;
+      // Cleanup
+      await this.LLDB._free(txPtr);
+      await this.LLDB._free(rxPtr);
+      return responseJSON;
+    },
     async updateEditor() {
       console.log("update editor");
       var request = {
@@ -370,30 +458,35 @@ export default {
         command: "stackTrace",
         arguments: { threadId: 0, startFrame: 0, levels: 10 },
       };
-      console.log("request", request);
-      let rxPtr = await this.LLDB._malloc(request.length + 1);
-      await this.LLDB.stringToUTF8(request, rxPtr, request.length + 1);
-      const txPtr = await this.LLDB.ccall(
-        "request_stackTrace",
-        "number",
-        ["number"],
-        [rxPtr]
-      );
-      const responseStr = await this.LLDB.UTF8ToString(txPtr);
-      let responseJSON = JSON.parse(responseStr);
-      console.log("response", responseJSON);
-      this.seqId++;
+      const responseJSON = await this.LLDBRequest(request, "request_stackTrace");
+
       console.log("PATH:", responseJSON.body.stackFrames[0].source.path);
       let file = {};
-      file["name"] = this.sanitizeFileName(
-        responseJSON.body.stackFrames[0].source.path
-      );
-      file["line"] = responseJSON.body.stackFrames[0].line;
-      this.load_file(file["name"]);
-      this.file = file;
+      let path = responseJSON.body.stackFrames[0].source.path;
+      if (path) {
+        file["name"] = this.sanitizeFileName(path);
+        file["line"] = responseJSON.body.stackFrames[0].line;
+        this.load_file(file["name"]);
+        this.file = file;
+      } else {
+        console.log("DISASSEMBLY");
+      }
       await this.disassemble();
       await this.getRegisters();
+      await this.getVariables();
       console.log("update editor done");
+    },
+    async getVariables() {
+      var request = {
+        type: "request",
+        seq: this.seqId,
+        command: "variables",
+        arguments: { variablesReference: 1 },
+      };
+      const responseJSON = await this.LLDBRequest(request, "request_variables");
+
+      this.variables = responseJSON.body.variables;
+      console.log("variables", this.variables);
     },
     async getRegisters() {
       let resPtr = await this.LLDB.ccall(
@@ -441,7 +534,6 @@ export default {
       this.disData = data;
       this.LLDB._free(resPtr);
     },
-
     sanitizeFileName(fileName) {
       if (fileName.includes("solana-program-1.10.33")) {
         fileName =
@@ -458,14 +550,12 @@ export default {
       console.log("sanitized:", fileName);
       return fileName;
     },
-
     // Setup
-    async getTree(program_id) {
+    async getTree() {
       const res = await fetch(
-        "http://localhost:8003/trees/" + program_id + ".json"
+        this.files_url + "trees/" + this.program_id + ".json"
       );
-      const finalRes = await res.json();
-      this.tree = finalRes;
+      this.tree = await res.json();
     },
     // Editor
     breakpoint(line) {
@@ -473,7 +563,6 @@ export default {
       let breakpoints = [];
       let exists = false;
       if (this.breakpoints[this.file.name] === undefined) {
-        console.log("NEWW");
         this.breakpoints[this.file.name] = [];
       } else {
         for (let l of this.breakpoints[this.file.name]) {
@@ -488,18 +577,10 @@ export default {
       if (!exists) {
         breakpoints.push(line);
       }
-      console.log("breakpoints new array", breakpoints);
-      console.log("file name", this.file.name);
       this.breakpoints[this.file.name] = breakpoints;
-      console.log("breakpoints", this.breakpoints[this.file.name]);
-      console.log("breakpoints", Object.entries(this.breakpoints));
     },
 
     deleteBreakpoint(fileName, line) {
-      console.log("deleteBreakpoint", fileName, line);
-      console.log("breakpoints", Object.entries(this.breakpoints));
-      console.log("breakpoints2", fileName);
-      console.log("breakpoints2", "code/src/lib.rs" === fileName);
       let breakpoints_old = [];
       for (let l of this.breakpoints[fileName]) {
         if (l === line) {
@@ -556,6 +637,7 @@ export default {
       this.file = { name: node.path };
       node.open = true;
       this.prev_node = node;
+      console.log("changeFile breakpoints", this.breakpoints);
       this.breakpointsEditor = this.breakpoints[node.path];
     },
     toggleFolder(node) {
@@ -567,25 +649,40 @@ export default {
 </script>
 
 <style>
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
-    Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-  font-size: 14px;
-  background-color: #201c1c;
+.add-wrap {
+  position: absolute;
+  background: linear-gradient(90deg, #9945ff 38.82%, #9945ff 0, #14f195 64.82%);
+  padding: 1px;
+  border-radius: 6px;
+  border-width: 1em;
+  left: 20px;
+  width: 30px;
+  height: 30px;
 }
 
 .add-item {
   color: #e0e4e6;
-  background-color: transparent;
+  background-color: #201c1c;
   border-radius: 6px;
   border-color: #30363d;
   border-style: solid;
   border-width: 1px;
-  position: absolute;
-  left: 20px;
-  width: 30px;
-  height: 30px;
+  width: 100%;
+  height: 100%;
   cursor: pointer;
+  text-align: center;
+  font-size: 15px;
+}
+
+.program-name {
+  color: #e0e4e6;
+  font-size: 16px;
+  background-color: transparent;
+  position: absolute;
+  left: 200px;
+  width: 200px;
+  height: 30px;
+  top: 0;
   text-align: center;
 }
 
@@ -735,10 +832,6 @@ input:checked + .slider:before {
   box-sizing: border-box;
   cursor: se-resize;
 }
-
-/*.vue-grid-item:not(.vue-grid-placeholder) {
-    border: 1px solid rgb(80, 80, 80);
-}*/
 
 .vue-grid-item.resizing {
   opacity: 0.9;

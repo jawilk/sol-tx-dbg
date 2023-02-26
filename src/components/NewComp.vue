@@ -5,7 +5,7 @@
       :key="comp.i"
       class="choose-comp"
       @click="choseComponent(comp)"
-      :class="{ 'deactivated': comp.name === 'CallGraphComp' }"
+      :class="{ 'deactivated': isDeactive(comp.name) }"
     >
       {{ comp.title }}
     </li>
@@ -49,6 +49,11 @@ const components = [
     title: "call graph",
     name: "CallGraphComp",
   },
+  {
+    i: 7,
+    title: "memory map",
+    name: "MemoryMapComp",
+  },
 ];
 
 export default {
@@ -57,6 +62,7 @@ export default {
   data() {
     return {
       components: components,
+      deactive: ['CallGraphComp', 'MemoryMapComp'],
     };
   },
   methods: {
@@ -65,6 +71,9 @@ export default {
         return;
       }
       this.$emit("choseComp", this.id, comp);
+    },
+    isDeactive(compName) {
+      return this.deactive.includes(compName);
     },
   },
 };

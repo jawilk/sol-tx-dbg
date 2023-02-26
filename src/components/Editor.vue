@@ -107,6 +107,7 @@ export default {
     Codemirror,
   },
   props: {
+    files_url: String,
     program_id: String,
     file: Object,
     breakpointsEditor: Object,
@@ -146,11 +147,10 @@ export default {
      y: 'center', })] }));
     },
     addBreakpoints() {
+      console.log("BREAKPOINTS", this.breakpointsEditor);
         this.breakpointsEditor.forEach((l) => {
           const docPosition = this.view.state.doc.line(l).from;
-          this.view.dispatch({
-            effects: breakpointEffect.of({ pos: docPosition, on: true }),
-          });
+          this.view.dispatch(this.getCodemirrorStates().state.update({ effects: breakpointEffect.of({ pos: docPosition, on: true }) })); 
         });
     },
     async parseFile(url) {
@@ -174,7 +174,7 @@ export default {
     file() {
       if (this.file.name !== this.curFile.name) {
       console.log("FILE", this.file);
-      this.parseFile("http://localhost:8003/code/" + this.program_id + '/' + this.file.name)
+      this.parseFile(this.files_url + '/code/' + this.program_id + '/' + this.file.name)
         .then((response) => response.text())
         .then((txt) => {
           let newState = EditorState.create({
@@ -187,6 +187,9 @@ export default {
             ],
           });            
           this.view.setState(newState)
+          if (this.breakpointsEditor !== undefined) {
+          this.addBreakpoints();
+      }
           if (this.file.line !== undefined) {
             console.log("HEREE", this.file.line)
             this.highlightLine(this.file.line);
@@ -196,11 +199,8 @@ export default {
     } else {
         if (this.file.line !== undefined) {
           this.highlightLine(this.file.line);
-      }
+        }
     }
-      if (this.breakpointsEditor !== undefined) {
-          this.addBreakpoints();
-      }
   }
 },
   setup(props, context) {
@@ -225,9 +225,9 @@ export default {
       cursor: "pointer",
       paddingLeft: "5px",
     },
-    ".cm-gutterElement:hover": {
-      color: "red",
-    },
+    // ".cm-gutterElement:hover": {
+    //   color: "red",
+    // },
   }),
 ];
     // Codemirror EditorView instance ref
@@ -279,3 +279,9 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.editor {
+ font-size: 12px;
+}
+</style>
