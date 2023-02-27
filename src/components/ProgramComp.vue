@@ -195,7 +195,7 @@ export default {
       disData: [],
       breakpoints: {},
       breakpointsEditor: [],
-      breakpointsEditorRemove: null,
+      // breakpointsEditorRemove: null,
       uuid: "",
       tx_hash: "",
       inst_nr: 0,
@@ -204,6 +204,8 @@ export default {
       variables: [],
       is_cpi: false,
       program_name: "",
+      prorgam_real_path:
+        "/home/wj/projects/solana-program-library/associated-token-account/",
     };
   },
   async mounted() {
@@ -263,7 +265,7 @@ export default {
             program_id: this.program_id,
             file: this.file,
             breakpointsEditor: this.breakpointsEditor,
-            breakpointsEditorRemove: this.breakpointsEditorRemove,
+            // breakpointsEditorRemove: this.breakpointsEditorRemove,
           };
         case "TreeNode":
           return { node: this.tree, focus: this.focus };
@@ -286,14 +288,14 @@ export default {
     getListeners(comp) {
       switch (comp) {
         case "EditorComponent":
-          return { ["breakpoint"]: this.breakpoint };
+          return { ["toggleBreakpoints"]: this.toggleBreakpoints };
         case "TreeNode":
           return {
             ["changeFile"]: this.changeFile,
             ["toggleFolder"]: this.toggleFolder,
           };
         case "BreakpointComp":
-          return { ["deleteBreakpoint"]: this.deleteBreakpoint };
+          return { ["deleteBreakpoint"]: this.toggleBreakpoints };
         case "NewComp":
           return { ["choseComp"]: this.choseComp };
         default:
@@ -435,12 +437,7 @@ export default {
       console.log("LLDBRequest", requestStr);
       let txPtr = await this.LLDB._malloc(requestStr.length + 1);
       await this.LLDB.stringToUTF8(requestStr, txPtr, requestStr.length + 1);
-      const rxPtr = await this.LLDB.ccall(
-        name,
-        "number",
-        ["number"],
-        [txPtr]
-      );
+      const rxPtr = await this.LLDB.ccall(name, "number", ["number"], [txPtr]);
       const responseStr = await this.LLDB.UTF8ToString(rxPtr);
       let responseJSON = JSON.parse(responseStr);
       console.log("response", responseJSON);
@@ -458,7 +455,10 @@ export default {
         command: "stackTrace",
         arguments: { threadId: 0, startFrame: 0, levels: 10 },
       };
-      const responseJSON = await this.LLDBRequest(request, "request_stackTrace");
+      const responseJSON = await this.LLDBRequest(
+        request,
+        "request_stackTrace"
+      );
 
       console.log("PATH:", responseJSON.body.stackFrames[0].source.path);
       let file = {};
@@ -542,10 +542,8 @@ export default {
       } else if (fileName.includes("rust-own")) {
         fileName =
           "code/rust-solana-1.59.0/" + fileName.split("rust-own/rust/")[1];
-      } else if (fileName.includes("associated-token-account/program")) {
-        fileName =
-          "code/program/" +
-          fileName.split("associated-token-account/program/")[1];
+      } else {
+        fileName = "code/program/" + fileName.split("/program/")[1];
       }
       console.log("sanitized:", fileName);
       return fileName;
@@ -557,43 +555,63 @@ export default {
       );
       this.tree = await res.json();
     },
-    // Editor
-    breakpoint(line) {
-      console.log("breakpoint", line);
-      let breakpoints = [];
-      let exists = false;
-      if (this.breakpoints[this.file.name] === undefined) {
-        this.breakpoints[this.file.name] = [];
+    sanitizeBreakpointPath(path) {
+      if (path.includes("solana-program-1.10.33")) {
+        path =
+          "/home/wj/.cargo/registry/src/github.com-1ecc6299db9ec823/solana-program-1.10.33/" +
+          path.split("solana-program-1.10.33/")[1];
+      } else if (path.includes("rust-own")) {
+        path = "/home/wj/projects/rust-own/" + path.split("rust-own/rust/")[1];
       } else {
-        for (let l of this.breakpoints[this.file.name]) {
-          if (l === line) {
-            console.log("breakpoint already exists -> removing");
-            exists = true;
-            continue;
-          }
-          breakpoints.push(l);
-        }
+        path = this.prorgam_real_path + path.split("/program/")[1];
       }
-      if (!exists) {
-        breakpoints.push(line);
-      }
-      this.breakpoints[this.file.name] = breakpoints;
+      return path;
     },
+    // Editor
+    async toggleBreakpoints(file, line) {
+      console.log("toggleBreakpoints0", this.breakpoints[file]);
+      if (file === "") {
+        file = this.file.name;
+      }
+      let preBreakpoints;
+      console.log("toggleBreakpoints", file, line);
+      if (this.breakpoints[file] === undefined) {
+        preBreakpoints = [];
+      } else {
+        preBreakpoints = this.breakpoints[file].slice();
+      }
+      const index = preBreakpoints.indexOf(line);
+      if (index !== -1) {
+        preBreakpoints.splice(index, 1);
+      } else {
+        preBreakpoints.push(line);
+      }
+      const breakpointsReq = preBreakpoints.map((num) => {
+        return { line: num };
+      });
+      var request = {
+        type: "request",
+        seq: this.seqId,
+        command: "setBreakpoints",
+        arguments: {
+          source: { path: this.sanitizeBreakpointPath(file) },
+          breakpoints: breakpointsReq,
+        },
+      };
+      const responseJSON = await this.LLDBRequest(
+        request,
+        "request_setBreakpoints"
+      );
+      console.log("responseJSON", responseJSON);
+      this.breakpoints[file] = responseJSON.body.breakpoints
+        .filter((b) => b.verified === true)
+        .map((b) => b.line);
 
-    deleteBreakpoint(fileName, line) {
-      let breakpoints_old = [];
-      for (let l of this.breakpoints[fileName]) {
-        if (l === line) {
-          console.log("breakpoint already exists -> removing");
-          continue;
-        }
-        breakpoints_old.push(l);
+      if (file === this.file.name) {
+        this.breakpointsEditor = this.breakpoints[this.file.name];
+        console.log("breakpointsEditor", this.breakpointsEditor);
       }
-      this.breakpoints[fileName] = breakpoints_old;
-      if (this.file.name === fileName) {
-        this.breakpointsEditorRemove = line;
-      }
-      console.log("breakpoints", this.breakpoints);
+      console.log("breakpoints", this.breakpoints[this.file.name]);
     },
 
     load_file(name) {

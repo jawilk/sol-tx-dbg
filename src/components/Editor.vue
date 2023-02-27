@@ -1,18 +1,18 @@
 <template>
-    <codemirror
-      class="editor"
-      ref="cm"
-      v-model="code"
-      placeholder="Code goes here..."
-      :style="{ height: '100%', width: '100%' }"
-      :autofocus="true"
-      :indent-with-tab="true"
-      :tab-size="2"
-      :extensions="extensions"
-      @ready="handleReady"
-      @change="log('change', $event)"
-      @focus="log('focus', $event)"
-    />
+  <codemirror
+    class="editor"
+    ref="cm"
+    v-model="code"
+    placeholder="Code goes here..."
+    :style="{ height: '100%', width: '100%' }"
+    :autofocus="true"
+    :indent-with-tab="true"
+    :tab-size="2"
+    :extensions="extensions"
+    @ready="handleReady"
+    @change="log('change', $event)"
+    @focus="log('focus', $event)"
+  />
 </template>
 
 <script>
@@ -82,24 +82,11 @@ const breakpointState = StateField.define({
   },
 });
 
-function toggleBreakpoint(view, pos) {
-  let breakpoints = view.state.field(breakpointState);
-  let hasBreakpoint = false;
-  breakpoints.between(pos, pos, () => {
-    hasBreakpoint = true;
-  });
-  view.dispatch({
-    effects: breakpointEffect.of({ pos, on: !hasBreakpoint }),
-  });
-}
-
 const breakpointMarker = new (class extends GutterMarker {
   toDOM() {
     return document.createTextNode("●");
   }
 })();
-
-
 
 export default {
   name: "EditorComponent",
@@ -110,48 +97,41 @@ export default {
     files_url: String,
     program_id: String,
     file: Object,
-    breakpointsEditor: Object,
-    breakpointsEditorRemove: null,
+    breakpointsEditor: Array,
   },
   data() {
     return {
       curFile: {},
-    }
-  },
-  mounted() {
-
-    this.$nextTick(function () {
-    const element = document.querySelector('.cm-breakpoint-gutter')
-    console.log("HERE", element)
-    element.addEventListener('click', () => {
-      this.breakpointEvent();
-    });
-      });
+      prevBreakpointsEditor: null,
+      is_first: true,
+    };
   },
   methods: {
-    gutterClick(cm, n) {
-      console.log("gutterClick", cm, n);
-    },
-    handleGutterClick(instance, line, gutter, clickEvent) {
-    // Your gutter click event handling logic goes here
-    console.log("breakpointevent2", instance, line, gutter, clickEvent);
-    },
-    breakpointEvent() {
-      console.log("breakpointevent");
-    },
     highlightLine(line) {
       console.log("highlightLine", line);
       const docPosition = this.view.state.doc.line(line).from;
-      this.view.dispatch(this.getCodemirrorStates().state.update({ selection: { anchor: docPosition, head: docPosition }, 
-      effects: [addLineHighlight.of(docPosition), EditorView.scrollIntoView(docPosition, {
-     y: 'center', })] }));
+      this.view.dispatch(
+        this.getCodemirrorStates().state.update({
+          selection: { anchor: docPosition, head: docPosition },
+          effects: [
+            addLineHighlight.of(docPosition),
+            EditorView.scrollIntoView(docPosition, {
+              y: "center",
+            }),
+          ],
+        })
+      );
     },
-    addBreakpoints() {
+    breakpointsInit() {
       console.log("BREAKPOINTS", this.breakpointsEditor);
-        this.breakpointsEditor.forEach((l) => {
-          const docPosition = this.view.state.doc.line(l).from;
-          this.view.dispatch(this.getCodemirrorStates().state.update({ effects: breakpointEffect.of({ pos: docPosition, on: true }) })); 
-        });
+      this.breakpointsEditor.forEach((l) => {
+        const docPosition = this.view.state.doc.line(l).from;
+        this.view.dispatch(
+          this.getCodemirrorStates().state.update({
+            effects: breakpointEffect.of({ pos: docPosition, on: true }),
+          })
+        );
+      });
     },
     async parseFile(url) {
       try {
@@ -161,79 +141,130 @@ export default {
         console.log("Error in fetch");
       }
     },
+    toggleBreakpoint(pos) {
+      console.log("is_first !!!!", this.is_first);
+      let breakpoints = this.view.state.field(breakpointState);
+      let hasBreakpoint = false;
+      breakpoints.between(pos, pos, () => {
+        hasBreakpoint = true;
+      });
+      const effects = [breakpointEffect.of({ pos, on: !hasBreakpoint })]
+      if (this.is_first) {
+        effects.push(
+        EditorView.scrollIntoView(pos, {
+              y: "center",
+            }))
+      }
+      this.view.dispatch(
+        this.getCodemirrorStates().state.update({
+        effects: effects,
+        }),
+        // {scrollIntoView: 'always'},
+      );
+      this.is_first = false;
+    },
   },
   watch: {
-    // Event from breakpoint panel
-    breakpointsEditorRemove() {
-      console.log("BREAKPOINTS", this.breakpointsEditorRemove);
-        const docPosition = this.view.state.doc.line(this.breakpointsEditorRemove).from;
-        this.view.dispatch({
-          effects: breakpointEffect.of({ pos: docPosition, on: false }),
+    breakpointsEditor() {
+      console.log("breakpointsEditor", this.breakpointsEditor);
+      if (this.breakpointsEditor === undefined) {
+        return;
+      }
+      if (this.prevBreakpointsEditor === null) {
+        this.breakpointsEditor.forEach((l) => {
+          const docPosition = this.view.state.doc.line(l).from;
+          this.toggleBreakpoint(docPosition);
+        });
+
+        this.prevBreakpointsEditor = this.breakpointsEditor;
+        return;
+      }
+      const difference = [
+        // Add
+        ...this.breakpointsEditor.filter(
+          (item) => !this.prevBreakpointsEditor.includes(item)
+        ),
+        // Delete
+        ...this.prevBreakpointsEditor.filter(
+          (item) => !this.breakpointsEditor.includes(item)
+        ),
+      ];
+      difference.forEach((l) => {
+        const docPosition = this.view.state.doc.line(l).from;
+        this.toggleBreakpoint(docPosition);
       });
+      console.log("difference", difference);
+
+      this.prevBreakpointsEditor = this.breakpointsEditor;
     },
     file() {
+      this.is_first = true;
       if (this.file.name !== this.curFile.name) {
-      console.log("FILE", this.file);
-      this.parseFile(this.files_url + '/code/' + this.program_id + '/' + this.file.name)
-        .then((response) => response.text())
-        .then((txt) => {
-          let newState = EditorState.create({
-            doc: txt,
-            readOnly: true,
-            extensions: [
-              EditorView.contentAttributes.of({ contenteditable: false }),
-              this.extensions,
-              lineNumbers(),
-            ],
-          });            
-          this.view.setState(newState)
-          if (this.breakpointsEditor !== undefined) {
-          this.addBreakpoints();
-      }
-          if (this.file.line !== undefined) {
-            console.log("HEREE", this.file.line)
-            this.highlightLine(this.file.line);
-      }
-      });
+        console.log("FILE", this.file);
+        this.parseFile(
+          this.files_url + "/code/" + this.program_id + "/" + this.file.name
+        )
+          .then((response) => response.text())
+          .then((txt) => {
+            let newState = EditorState.create({
+              doc: txt,
+              readOnly: true,
+              extensions: [
+                EditorView.contentAttributes.of({ contenteditable: false }),
+                this.extensions,
+                lineNumbers(),
+              ],
+            });
+            this.view.setState(newState);
+            if (this.breakpointsEditor !== undefined) {
+              this.breakpointsInit();
+            }
+            if (this.file.line !== undefined) {
+              this.highlightLine(this.file.line);
+            }
+          });
         this.curFile = this.file;
-    } else {
+      } else {
         if (this.file.line !== undefined) {
           this.highlightLine(this.file.line);
         }
-    }
-  }
-},
+      }
+    },
+  },
   setup(props, context) {
     const breakpointGutter = [
-  breakpointState,
-  gutter({
-    class: "cm-breakpoint-gutter",
-    markers: (v) => v.state.field(breakpointState),
-    initialSpacer: () => breakpointMarker,
-    domEventHandlers: {
-      mousedown(view, line) {
-        console.log("LINE:",line);
-        context.emit('breakpoint', view.state.doc.lineAt(line.from).number);
-        toggleBreakpoint(view, line.from);
-        return true;
-      },
-    },
-  }),
-  EditorView.baseTheme({
-    ".cm-breakpoint-gutter .cm-gutterElement": {
-      color: "red",
-      cursor: "pointer",
-      paddingLeft: "5px",
-    },
-    // ".cm-gutterElement:hover": {
-    //   color: "red",
-    // },
-  }),
-];
+      breakpointState,
+      gutter({
+        class: "cm-breakpoint-gutter",
+        markers: (v) => v.state.field(breakpointState),
+        initialSpacer: () => breakpointMarker,
+        domEventHandlers: {
+          mousedown(view, line) {
+            console.log("LINE:", line);
+            context.emit(
+              "toggleBreakpoints",
+              "",
+              view.state.doc.lineAt(line.from).number
+            );
+            //return true;
+          },
+        },
+      }),
+      EditorView.baseTheme({
+        ".cm-breakpoint-gutter .cm-gutterElement": {
+          color: "red",
+          cursor: "pointer",
+          paddingLeft: "5px",
+        },
+        // ".cm-gutterElement:hover": {
+        //   color: "red",
+        // },
+      }),
+    ];
     // Codemirror EditorView instance ref
     const view = shallowRef();
     const handleReady = (payload) => {
-      console.log("pay",payload)
+      console.log("pay", payload);
       view.value = payload.view;
       // payload.on("gutterClick", handleGutterClick);
     };
@@ -282,6 +313,6 @@ export default {
 
 <style scoped>
 .editor {
- font-size: 12px;
+  font-size: 12px;
 }
 </style>
