@@ -3,6 +3,7 @@
     <div v-drag="{ handle: '#debugDragHandle' }">
       <DebugPanel
         :isActive="isActive"
+        :isRestart="isRestart"
         @next="next"
         @continue="continue_"
         @restart="restart"
@@ -12,6 +13,7 @@
     <span class="add-wrap">
       <button class="add-item" @click="addPanel" title="add panel">+</button>
     </span>
+    <p v-if="is_cpi" class="cpi-info">CPI</p>
     <p class="program-name" :title="program_id">{{ program_name }}</p>
   </div>
   <div class="content">
@@ -66,6 +68,7 @@ import NewComp from "./NewComp.vue";
 import lldbModule from "../lldb";
 import RegistersComp from "./RegistersComp.vue";
 import VariablesComp from "./VariablesComp.vue";
+import MemoryComp from "./MemoryComp.vue";
 
 const startLayout = [
   {
@@ -145,6 +148,17 @@ const startLayout = [
     isResizable: true,
     isComponent: true,
   },
+  {
+    x: 1,
+    y: 3,
+    w: 4,
+    h: 8,
+    i: "7",
+    name: "memory map",
+    comp: "MemoryComp",
+    isResizable: true,
+    isComponent: true,
+  },
 ];
 
 // const treeData = {
@@ -176,12 +190,13 @@ export default {
     NewComp,
     RegistersComp,
     VariablesComp,
+    MemoryComp,
   },
   data() {
     return {
       files_url: "http://localhost:8005/",
       websocket_url: "ws://localhost:9007/?token=",
-      cpi_url: "http://localhost:8085/program/?uuid=",
+      cpi_url: "http://localhost:8084/program/",
       LLDB: null,
       layout: startLayout,
       index: 0,
@@ -192,6 +207,7 @@ export default {
       seqId: 0,
       focus: false,
       isActive: false,
+      isRestart: false,
       disData: [],
       breakpoints: {},
       breakpointsEditor: [],
@@ -204,8 +220,8 @@ export default {
       variables: [],
       is_cpi: false,
       program_name: "",
-      prorgam_real_path:
-        "/home/wj/projects/solana-program-library/associated-token-account/",
+      program_real_path:
+        "/home/wj/projects/solana-program-library/associated-token-account/program/",
     };
   },
   async mounted() {
@@ -275,6 +291,8 @@ export default {
           return { breakpoints: this.breakpoints };
         case "LLDBComp":
           return { executeLLDBCommand: this.executeLLDBCommand };
+          case "MemoryComp":
+          return { getMemory: this.getMemory };
         case "NewComp":
           return { id: id };
         case "RegistersComp":
@@ -370,6 +388,18 @@ export default {
       this.LLDB._free(resPtr);
       return lldbOutput;
     },
+    async getMemory(address, bytes) {
+      const command = "mem read " + address + " -c " + bytes;
+      let resPtr = await this.LLDB.ccall(
+        "execute_command",
+        "number",
+        ["string"],
+        [command]
+      );
+      const lldbOutput = await this.LLDB.UTF8ToString(resPtr);
+      this.LLDB._free(resPtr);
+      return lldbOutput;
+    },
     async handleCpi() {
       await this.updateEditor();
       const pubkeyArr = await this.LLDB.ccall(
@@ -382,11 +412,35 @@ export default {
         new Uint8Array(this.LLDB.HEAPU8.buffer, pubkeyArr, 32)
       );
       console.log("request_cpi_program_id: ", pubkey);
-      const url = this.cpi_url + this.uuid + "&program_id=" + pubkey;
+      let url;
+      if (pubkey === "11111111111111111111111111111111") {
+        url = this.cpi_url + "not-supported?program_id=" + pubkey;
+      } else {
+        url = this.cpi_url + "?uuid=" + this.uuid + "&program_id=" + pubkey;
+      }
       window.open(url);
       // This will block till cpi finished
       await this.LLDB.ccall("request_next_with_cpi", "boolean", [], []);
       console.log("CPI finished");
+    },
+    async check_finished() {
+      const is_finished = await this.LLDB.ccall(
+        "should_terminate",
+        "number",
+        [],
+        []
+      );
+      if (is_finished === -1) {
+        console.log("execution finished");
+        alert("execution finished");
+        if (!this.is_cpi) {
+          this.isRestart = true;
+          console.log("restart");
+        }
+        return;
+      }
+      await this.updateEditor();
+      this.isActive = true;
     },
     // Debug Panel
     async next() {
@@ -402,8 +456,7 @@ export default {
       if (is_before_cpi === true) {
         await this.handleCpi();
       }
-      await this.updateEditor();
-      this.isActive = true;
+      await this.check_finished();
     },
     async continue_() {
       this.isActive = false;
@@ -418,8 +471,7 @@ export default {
       if (is_before_cpi === true) {
         await this.handleCpi();
       }
-      this.updateEditor();
-      this.isActive = true;
+      await this.check_finished();
     },
     async restart() {
       console.log("restart");
@@ -563,7 +615,7 @@ export default {
       } else if (path.includes("rust-own")) {
         path = "/home/wj/projects/rust-own/" + path.split("rust-own/rust/")[1];
       } else {
-        path = this.prorgam_real_path + path.split("/program/")[1];
+        path = this.program_real_path + path.split("/program/")[1];
       }
       return path;
     },
@@ -690,6 +742,18 @@ export default {
   cursor: pointer;
   text-align: center;
   font-size: 15px;
+}
+
+.cpi-info {
+  color: #e0e4e6;
+  font-size: 16px;
+  background-color: transparent;
+  position: absolute;
+  left: 40px;
+  width: 200px;
+  height: 30px;
+  top: 0;
+  text-align: center;
 }
 
 .program-name {

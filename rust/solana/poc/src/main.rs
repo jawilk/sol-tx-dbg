@@ -60,10 +60,12 @@ fn create_single_inst(
 //     signers
 // }
 
-fn sanitize_accounts(accounts: &Vec<AccountMeta>) -> Vec<Pubkey> {
+fn sanitize_accounts(accounts: &Vec<AccountMeta>, programs: &Vec<Pubkey>) -> Vec<Pubkey> {
     let mut accounts_sanitized = vec![];
     for acc in accounts.iter() {
-        accounts_sanitized.push(acc.pubkey);
+        if !programs.contains(&acc.pubkey) {
+            accounts_sanitized.push(acc.pubkey);
+        }
     }
     accounts_sanitized
 }
@@ -116,7 +118,7 @@ fn get_inst(tx_hash: &str, inst_nr: usize) -> (Instruction, Pubkey) {
 
 fn setup(tx_hash: &str, inst_nr: usize, port: u16) {
     println!("PORT RUST: {}", port); // Set debugger port
-    set_port(port);// - 1);
+    set_port(port); // - 1);
 
     let (inst, payer) = get_inst(tx_hash, inst_nr);
 
@@ -131,7 +133,7 @@ fn setup(tx_hash: &str, inst_nr: usize, port: u16) {
     // dir.to_str()
     // }
     // .unwrap();
-    
+
     let token_pubkey = Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap();
 
     let rpc_client = RpcClient::new("https://api.mainnet-beta.solana.com".to_string());
@@ -140,17 +142,25 @@ fn setup(tx_hash: &str, inst_nr: usize, port: u16) {
         format!("tests/elfs/{}.so", inst.program_id)
     );
 
+    // TODO: get all in inst involved program IDs
+    let mut programs = vec![];
+    programs.push(inst.program_id);
+    programs.push(token_pubkey);
+
     let mut env = LocalEnvironment::builder()
-        .clone_accounts_from_cluster(&sanitize_accounts(&inst.accounts), &rpc_client)
+        .clone_accounts_from_cluster(&sanitize_accounts(&inst.accounts, &programs), &rpc_client)
         .add_program(
             inst.program_id,
             format!("tests/elfs/{}.so", inst.program_id),
         )
         .add_program(
             token_pubkey,
-            format!("tests/elfs/{}.so", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+            format!(
+                "tests/elfs/{}.so",
+                "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+            ),
         )
-        // Add the original payer
+        // // Add the original payer
         .add_account_with_lamports(payer, system_program::ID, sol_to_lamports(1.0))
         .build();
 

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
 import ProgramChoiceComp from './components/ProgramChoiceComp.vue';
 import ProgramComp from './components/ProgramComp.vue';
+import NotSupportedComp from './components/NotSupportedComp.vue';
 
 
 const routes = [
@@ -19,7 +20,12 @@ const routes = [
         path: '/program',
         name: 'program',
         component: ProgramComp,
-    }
+    },
+    {
+      path: '/program/not-supported',
+      name: 'notSupported',
+      component: NotSupportedComp,
+  }
   ];
   
   const router = createRouter({

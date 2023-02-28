@@ -46,13 +46,13 @@ const components = [
   },
   {
     i: 6,
-    title: "call graph",
-    name: "CallGraphComp",
+    title: "memory map",
+    name: "MemoryComp",
   },
   {
     i: 7,
-    title: "memory map",
-    name: "MemoryMapComp",
+    title: "call graph",
+    name: "CallGraphComp",
   },
 ];
 
@@ -62,7 +62,7 @@ export default {
   data() {
     return {
       components: components,
-      deactive: ['CallGraphComp', 'MemoryMapComp'],
+      deactive: ['CallGraphComp'],
     };
   },
   methods: {

@@ -1,22 +1,53 @@
 <template>
   <div class="debug-panel">
     <div id="debugDragHandle" title="drag me">~</div>
-    <span class="continue" @click="continue_" title="continue" :class="{'deactivated': !isActive}">&#9658;</span>
-    <span class="arrow-left-right" @click="next" title="next" :class="{'deactivated': !isActive}">&#8594;</span>
-    <span class="arrow-left-right deactivated" title="reverse">&#8592;</span> 
-    <span class="arrow-down-up" title="step in" :class="{'deactivated': !isActive}">&#8595;</span>
-    <span class="arrow-down-up" title="step out" :class="{'deactivated': !isActive}">&#8593;</span>
-    <span class="restart" @click="restart" title="restart" :class="{'deactivated': !isActive}">&#8635;</span>
-    <span class="stop" @click="stop" title="stop (finish session)" :class="{'deactivated': !isActive}">&#9632;</span>
+    <span
+      class="continue"
+      @click="continue_"
+      title="continue"
+      :class="{ deactivated: !isActive }"
+      >&#9658;</span
+    >
+    <span
+      class="arrow-left-right"
+      @click="next"
+      title="next"
+      :class="{ deactivated: !isActive }"
+      >&#8594;</span
+    >
+    <span class="arrow-left-right deactivated" title="reverse">&#8592;</span>
+    <span
+      class="arrow-down-up"
+      title="step in"
+      :class="{ deactivated: !isActive }"
+      >&#8595;</span
+    >
+    <span
+      class="arrow-down-up"
+      title="step out"
+      :class="{ deactivated: !isActive }"
+      >&#8593;</span
+    >
+    <span
+      class="restart"
+      @click="restart"
+      title="restart"
+      :class="{ deactivated: !isActive && !isRestart }"
+      >&#8635;</span
+    >
   </div>
 </template>
 
 <script>
 export default {
   name: "DebugPanel",
-  props: ["isActive"],
+  props: {
+    isActive: Boolean,
+    isRestart: Boolean,
+  },
   methods: {
     continue_() {
+      if (!this.isActive) return;
       this.$emit("continue");
     },
     next() {
@@ -25,9 +56,6 @@ export default {
     },
     restart() {
       this.$emit("restart");
-    },
-    stop() {
-      this.$emit("stop");
     },
   },
 };
@@ -81,9 +109,5 @@ export default {
 
 .restart {
   color: #14f195;
-}
-
-.stop {
-  color: #cf4d4d;
 }
 </style>

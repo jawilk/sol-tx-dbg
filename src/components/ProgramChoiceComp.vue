@@ -109,7 +109,7 @@ export default {
 .program-wrap {
   margin-right: 20px;
   position: relative;
-  background: linear-gradient(90deg,#9945ff 38.82%,#9945ff 0,#14f195 64.82%);
+  background: #e0e4e6;
   padding: 1px;
   border-radius: 6px;
   border-width: 1em;

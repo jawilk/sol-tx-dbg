@@ -13,7 +13,7 @@
      </div>
      <div class="output">
         <b>Output:</b><br>
-        {{ output }}
+        <pre class="memory-output">{{ output }}</pre>
       </div>
 </template>
   
