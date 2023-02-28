@@ -1,6 +1,6 @@
 <template>
   <div class="debug-panel">
-    <div id="debugDragHandle" title="drag me">~</div>
+    <div class="debugDragHandle" title="drag me">~</div>
     <span
       class="continue"
       @click="continue_"
@@ -55,7 +55,8 @@ export default {
       this.$emit("next");
     },
     restart() {
-      this.$emit("restart");
+      if (!this.isActive && !this.isRestart) return;
+      window.location.reload();
     },
   },
 };
@@ -87,7 +88,7 @@ export default {
   cursor: pointer;
 }
 
-#debugDragHandle {
+.debugDragHandle {
   color: #9945ff;
   text-align: center;
   background-color: transparent;

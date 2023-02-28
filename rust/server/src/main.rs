@@ -6,6 +6,8 @@ use std::fs::File;
 use std::io::Write;
 use std::str::FromStr;
 use std::sync::Mutex;
+use std::time::Instant;
+use std::{thread, time};
 
 use lazy_static::lazy_static;
 
@@ -22,7 +24,9 @@ use rocket::serde::Serialize;
 use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcTransactionConfig;
 use solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
+use solana_sdk::system_program;
 use solana_transaction_status::EncodedTransaction;
 use solana_transaction_status::UiTransactionEncoding;
 
@@ -61,6 +65,7 @@ struct ProgramMeta {
     name: Option<String>,
     program_id: String,
     is_supported: bool,
+    cpi_programs: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -80,11 +85,16 @@ fn get_tx_info(tx_hash_str: &str) -> InitResponse {
         max_supported_transaction_version: Some(0),
     };
     let tx_hash = Signature::from_str(&tx_hash_str).unwrap();
-    let tx = rpc_client
-        .get_transaction_with_config(&tx_hash, config)
-        .unwrap()
-        .transaction
-        .transaction;
+    let now = Instant::now();
+    let tx = loop {
+        match rpc_client.get_transaction_with_config(&tx_hash, config) {
+            Ok(tx) => break tx.transaction.transaction,
+            _ => thread::sleep(time::Duration::from_secs(1)),
+        }
+        if now.elapsed().as_secs() > 5 {
+            panic!("Error getting transaction!");
+        }
+    };
     if let EncodedTransaction::Json(tx) = tx {
         // Save tx to disk to access later from POC
         let data = serde_json::to_vec(&tx).unwrap();
@@ -98,6 +108,24 @@ fn get_tx_info(tx_hash_str: &str) -> InitResponse {
 
         if let solana_transaction_status::UiMessage::Raw(message) = tx.message {
             for inst in message.instructions {
+                let mut cpi_programs = vec![];
+                for account_index in inst.accounts.iter() {
+                    let account = &message.account_keys[*account_index as usize];
+                    if *account == system_program::id().to_string() {
+                        continue;
+                    }
+                    let account_info = rpc_client.get_account(&Pubkey::from_str(account).unwrap());
+                    match account_info {
+                        Ok(account_info) => {
+                            if account_info.executable {
+                                if !cpi_programs.contains(account) {
+                                    cpi_programs.push(account.clone());
+                                }
+                            }
+                        }
+                        _ => (),
+                    }
+                }
                 let program_id = message.account_keys[inst.program_id_index as usize].clone();
                 let is_supported = SUPPORTED_PROGRAMS.iter().any(|&p| p == program_id);
                 program_metas.push(ProgramMeta {
@@ -115,6 +143,7 @@ fn get_tx_info(tx_hash_str: &str) -> InitResponse {
                     },
                     program_id,
                     is_supported,
+                    cpi_programs,
                 });
             }
         }

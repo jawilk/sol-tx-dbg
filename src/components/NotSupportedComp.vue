@@ -1,6 +1,6 @@
 <template>
   <div class="wrap">
-    <p class="cpi-info">CPI</p>
+    <p class="program-status">CPI</p>
     <p class="program-name" :title="program_id">{{ program_id }}</p>
   </div>
 </template>

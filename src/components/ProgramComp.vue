@@ -6,14 +6,13 @@
         :isRestart="isRestart"
         @next="next"
         @continue="continue_"
-        @restart="restart"
-        @stop="stop"
       />
     </div>
     <span class="add-wrap">
       <button class="add-item" @click="addPanel" title="add panel">+</button>
     </span>
-    <p v-if="is_cpi" class="cpi-info">CPI</p>
+    <p v-if="isCpi" class="program-status">CPI</p>
+    <p v-if="isFinished" style="color: red" class="program-status">Finished</p>
     <p class="program-name" :title="program_id">{{ program_name }}</p>
   </div>
   <div class="content">
@@ -35,10 +34,12 @@
         :h="item.h"
         :i="item.i"
         :is-resizable="item.isResizable"
+        :drag-allow-from="item.name !== 'editor' ? '.vue-draggable-handle' : null"
       >
         <div class="dis-view">
           <div v-if="item.name !== 'editor'" class="panel-header">
             <p class="title">{{ item.name }}</p>
+            <div title="drag me" class="vue-draggable-handle">&harr;</div>
             <div class="delete-container" title="remove">
               <span class="delete" @click="removePanel(item.i)">x</span>
             </div>
@@ -206,6 +207,8 @@ export default {
       prev_node: null,
       seqId: 0,
       focus: false,
+      isFinished: false,
+      isDebuggerConnected: false,
       isActive: false,
       isRestart: false,
       disData: [],
@@ -218,11 +221,17 @@ export default {
       program_id: "",
       registers: [],
       variables: [],
-      is_cpi: false,
+      isCpi: false,
       program_name: "",
       program_real_path:
         "/home/wj/projects/solana-program-library/associated-token-account/program/",
     };
+  },
+  beforeCreate() {
+    window.addEventListener('beforeunload', this.handleWindowClose);
+  },
+  unmounted() {
+    window.removeEventListener('beforeunload', this.handleWindowClose);
   },
   async mounted() {
     console.log(this.$route.query);
@@ -241,7 +250,7 @@ export default {
     console.log("name", this.program_name);
     if (!this.$route.query.tx_hash) {
       console.log("IS CPI");
-      this.is_cpi = true;
+      this.isCpi = true;
       this.LLDB["websocket"]["url"] = this.websocket_url + this.uuid;
     } else {
       console.log("NO CPI");
@@ -267,12 +276,24 @@ export default {
     await this.LLDB._free(res);
     // connect to vm
     await this.connect();
+    this.isDebuggerConnected = true;
     this.isActive = true;
     console.log("mounted");
     // update panels
     await this.updateEditor();
   },
   methods: {
+    handleWindowClose() {
+      if (!this.isDebuggerConnected) {
+        const ws = new WebSocket(this.websocket_url + this.uuid);
+        // ws.send('close');
+        ws.close();
+      }
+    },
+    cleanup() {
+      this.LLDB.exports = null;
+      this.LLDB = null;
+    },
     getProps(comp, id) {
       switch (comp) {
         case "EditorComponent":
@@ -281,7 +302,6 @@ export default {
             program_id: this.program_id,
             file: this.file,
             breakpointsEditor: this.breakpointsEditor,
-            // breakpointsEditorRemove: this.breakpointsEditorRemove,
           };
         case "TreeNode":
           return { node: this.tree, focus: this.focus };
@@ -377,6 +397,9 @@ export default {
       this.LLDB._free(res);
     },
     async executeLLDBCommand(command) {
+      if (!this.isActive) {
+        return "please wait for the current action to finish or restart"
+      }
       console.log("executeLLDBCommand", command);
       let resPtr = await this.LLDB.ccall(
         "execute_command",
@@ -389,6 +412,9 @@ export default {
       return lldbOutput;
     },
     async getMemory(address, bytes) {
+      if (!this.isActive) {
+        return "please wait for the current action to finish or restart"
+      }
       const command = "mem read " + address + " -c " + bytes;
       let resPtr = await this.LLDB.ccall(
         "execute_command",
@@ -424,16 +450,17 @@ export default {
       console.log("CPI finished");
     },
     async check_finished() {
-      const is_finished = await this.LLDB.ccall(
+      this.isFinished = await this.LLDB.ccall(
         "should_terminate",
         "number",
         [],
         []
       );
-      if (is_finished === -1) {
+      if (this.isFinished === -1) {
         console.log("execution finished");
+        this.cleanup();
         alert("execution finished");
-        if (!this.is_cpi) {
+        if (!this.isCpi) {
           this.isRestart = true;
           console.log("restart");
         }
@@ -473,18 +500,11 @@ export default {
       }
       await this.check_finished();
     },
-    async restart() {
-      console.log("restart");
-      await this.LLDB.ccall("request_next", null, [], []);
-      this.updateEditor();
-    },
-    async stop() {
-      console.log("stop");
-      await this.LLDB.ccall("request_next", null, [], []);
-      this.updateEditor();
-    },
     // Update
     async LLDBRequest(request, name) {
+      if (this.LLDB === null) {
+        return;
+      }
       const requestStr = JSON.stringify(request);
       console.log("LLDBRequest", requestStr);
       let txPtr = await this.LLDB._malloc(requestStr.length + 1);
@@ -621,6 +641,9 @@ export default {
     },
     // Editor
     async toggleBreakpoints(file, line) {
+      if (this.LLDB === null) {
+        return;
+      }
       console.log("toggleBreakpoints0", this.breakpoints[file]);
       if (file === "") {
         file = this.file.name;
@@ -744,7 +767,7 @@ export default {
   font-size: 15px;
 }
 
-.cpi-info {
+.program-status {
   color: #e0e4e6;
   font-size: 16px;
   background-color: transparent;
@@ -781,15 +804,8 @@ export default {
 
 .panel-header {
   display: flex;
-  align-items: center;
   flex-direction: row;
-}
-
-.delete-container {
-  position: absolute;
-  right: 10px;
-  top: 0;
-  cursor: pointer;
+  align-items: center;
 }
 
 .title {
@@ -800,65 +816,20 @@ export default {
   width: 150px;
 }
 
-.switch-container {
-  margin-top: -8px;
-  margin-left: auto;
-  margin-right: 10px;
-}
-
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 25px;
-  height: 14px;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
+.vue-draggable-handle {
   position: absolute;
+  color: #e0e4e6;
+  font-size: 20px;
+  top: -10px;
+  right: 50%;
   cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #98c379;
-  -webkit-transition: 0.4s;
-  transition: 0.4s;
 }
 
-.slider:before {
+.delete-container {
   position: absolute;
-  content: "";
-  height: 9px;
-  width: 9px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  -webkit-transition: 0.4s;
-  transition: 0.4s;
-}
-
-input:checked + .slider {
-  background-color: #e06c75;
-}
-
-input:checked + .slider:before {
-  -webkit-transform: translateX(10px);
-  -ms-transform: translateX(10px);
-  transform: translateX(10px);
-}
-
-.slider.round {
-  border-radius: 24px;
-}
-
-.slider.round:before {
-  border-radius: 50%;
+  right: 10px;
+  top: 0;
+  cursor: pointer;
 }
 
 .wrap {

@@ -1,6 +1,9 @@
 //! Debugger for the virtual machines' interpreter.
 
 use std::net::{TcpListener, TcpStream};
+use std::time::{Duration, Instant};
+use std::thread::sleep;
+use std::io;
 
 use gdbstub::common::Signal;
 use gdbstub::conn::ConnectionExt;
@@ -40,11 +43,31 @@ fn wait_for_tcp(host: &str, port: u16) -> DynResult<TcpStream> {
 
     let sock = TcpListener::bind(sockaddr)?;
     println!("New socket: {:?}", sock.local_addr().unwrap());
+    sock.set_nonblocking(true).expect("Cannot set non-blocking");
 
-    let (stream, addr) = sock.accept()?;
-    eprintln!("Debugger connected from {}", addr);
+    // Timeout mostly as a hack to continue after cpi browser window was closed immediately
+    let now = Instant::now();
+    loop {
+      match sock.accept() {
+        Ok((stream, addr)) => {
+            eprintln!("Debugger connected from {}", addr);
+            return Ok(stream);
+        }
+        Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+            if now.elapsed().as_secs() > 10 {
+                 println!("Error accepting connection (timeout): {:?}", e);
+                 return Err(e.into());
+            }
+            sleep(Duration::new(1, 0));
+            continue;
+        }
+        Err(e) => panic!("encountered IO error: {}", e),
+      }
+    }
+    //let (stream, addr) = sock.accept()?;
+    //eprintln!("Debugger connected from {}", addr);
 
-    Ok(stream)
+    //Ok(stream)
 }
 
 /// Connect to the debugger and hand over the control of the interpreter
@@ -53,8 +76,35 @@ pub fn execute<V: Verifier, E: UserDefinedError, I: InstructionMeter>(
     host: &str,
     port: u16,
 ) -> ProgramResult<E> {
-    let connection: Box<dyn ConnectionExt<Error = std::io::Error>> =
-        Box::new(wait_for_tcp(host, port).expect("Cannot connect to Debugger"));
+    let connection: Box<dyn ConnectionExt<Error = std::io::Error>> = match wait_for_tcp(host, port)
+    {
+        Ok(stream) => Box::new(stream),
+        Err(e) => {
+            let result = loop {
+                match interpreter.step() {
+                    Ok(None) => (),
+                    Ok(result) => break result,
+                    Err(e) => return Err(e),
+                }
+            };
+            if interpreter
+                .vm
+                .verified_executable
+                .get_executable()
+                .get_config()
+                .enable_instruction_meter
+            {
+                interpreter
+                    .instruction_meter
+                    .consume(interpreter.due_insn_count);
+                interpreter.vm.total_insn_count =
+                    interpreter.initial_insn_count - interpreter.instruction_meter.get_remaining();
+            }
+
+            return Ok(result.unwrap_or(0));
+        }
+    };
+    //::new(wait_for_tcp(host, port).expect("Cannot connect to Debugger"));
 
     let mut dbg = GdbStub::new(connection)
         .run_state_machine(interpreter)
@@ -133,7 +183,7 @@ pub fn execute<V: Verifier, E: UserDefinedError, I: InstructionMeter>(
                                         SingleThreadStopReason::Exited(result.unwrap_or(0) as u8),
                                     )
                                     .unwrap();
-                                    break 'outer result
+                                break 'outer result;
                             }
                             Err(e) => return Err(e),
                         };

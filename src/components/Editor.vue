@@ -240,7 +240,6 @@ export default {
         initialSpacer: () => breakpointMarker,
         domEventHandlers: {
           mousedown(view, line) {
-            console.log("LINE:", line);
             context.emit(
               "toggleBreakpoints",
               "",

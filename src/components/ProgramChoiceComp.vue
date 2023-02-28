@@ -12,8 +12,8 @@
       <div class="program-header">{{ index }}</div>
       <div class="program-info">
         Program ID: {{ program.program_id }}<br /><br />
-        Program Name: {{ program.name ? program.name : "Unknown" }}<br /><br />
-        is_supported: {{ program.is_supported }}<br /><br />
+        Program Name: {{ program.name ?? "Unknown" }}<br /><br />
+        CPIs: {{ program.cpi_programs ? program.cpi_programs.join(', ') : "None" }}<br /><br />
         <button
           v-if="!program.is_supported"
           type="submit"
