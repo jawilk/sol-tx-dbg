@@ -4,6 +4,7 @@
       <DebugPanel
         :isActive="isActive"
         :isRestart="isRestart"
+        @stepIn="stepIn"
         @next="next"
         @continue="continue_"
       />
@@ -34,7 +35,9 @@
         :h="item.h"
         :i="item.i"
         :is-resizable="item.isResizable"
-        :drag-allow-from="item.name !== 'editor' ? '.vue-draggable-handle' : null"
+        :drag-allow-from="
+          item.name !== 'editor' ? '.vue-draggable-handle' : null
+        "
       >
         <div class="dis-view">
           <div v-if="item.name !== 'editor'" class="panel-header">
@@ -234,7 +237,7 @@ export default {
     window.removeEventListener('beforeunload', this.handleWindowClose);
   },
   async mounted() {
-    console.log(this.$route.query);
+    console.log("program query", this.$route.query);
     // vue-grid-layout
     this.index = this.layout.length;
     // instantiate lldb.wasm
@@ -470,6 +473,21 @@ export default {
       this.isActive = true;
     },
     // Debug Panel
+    async stepIn() {
+      this.isActive = false;
+      console.log("request_stepIn_with_cpi");
+      const is_before_cpi = await this.LLDB.ccall(
+        "request_stepIn_with_cpi",
+        "boolean",
+        [],
+        []
+      );
+      // CPI
+      if (is_before_cpi === true) {
+        await this.handleCpi();
+      }
+      await this.check_finished();
+    },
     async next() {
       this.isActive = false;
       console.log("request_next_with_cpi");
@@ -525,7 +543,7 @@ export default {
         type: "request",
         seq: this.seqId,
         command: "stackTrace",
-        arguments: { threadId: 0, startFrame: 0, levels: 10 },
+        arguments: { threadId: 1, startFrame: 0, levels: 10 },
       };
       const responseJSON = await this.LLDBRequest(
         request,
@@ -632,8 +650,8 @@ export default {
         path =
           "/home/wj/.cargo/registry/src/github.com-1ecc6299db9ec823/solana-program-1.10.33/" +
           path.split("solana-program-1.10.33/")[1];
-      } else if (path.includes("rust-own")) {
-        path = "/home/wj/projects/rust-own/" + path.split("rust-own/rust/")[1];
+      } else if (path.includes("rust-solana-1.59.0")) {
+        path = "/home/wj/projects/rust-own/rust/" + path.split("rust-solana-1.59.0/")[1];
       } else {
         path = this.program_real_path + path.split("/program/")[1];
       }

@@ -2,35 +2,37 @@
   <div class="program-choice-header">
     <p>
       This transaction contains
-      <span style="color: #98c379">{{ instData.length }}</span> instructions.
+      <span style="color: #98c379">{{ instData.length }}</span> instruction(s).
       Please choose:
     </p>
   </div>
   <div class="program-view">
     <div class="program-wrap" v-for="(program, index) in instData" :key="index">
       <div class="program">
-      <div class="program-header">{{ index }}</div>
-      <div class="program-info">
-        Program ID: {{ program.program_id }}<br /><br />
-        Program Name: {{ program.name ?? "Unknown" }}<br /><br />
-        CPIs: {{ program.cpi_programs ? program.cpi_programs.join(', ') : "None" }}<br /><br />
-        <button
-          v-if="!program.is_supported"
-          type="submit"
-          class="chooseBtn startBtnDis"
-        >
-          not supported
-        </button>
-        <button
-          @click="startDebugger(index)"
-          v-if="program.is_supported"
-          type="submit"
-          class="chooseBtn"
-        >
-          replay
-        </button>
+        <div class="program-header">{{ index }}</div>
+        <div class="program-info">
+          Program ID: {{ program.program_id }}<br /><br />
+          Program Name: {{ program.name ?? "Unknown" }}<br /><br />
+          CPIs:
+          {{ program.cpi_programs ? program.cpi_programs.join(", ") : "None"
+          }}<br /><br />
+          <button
+            v-if="!program.is_supported"
+            type="submit"
+            class="chooseBtn startBtnDis"
+          >
+            not supported
+          </button>
+          <button
+            @click="startDebugger(index)"
+            v-if="program.is_supported"
+            type="submit"
+            class="chooseBtn"
+          >
+            replay
+          </button>
+        </div>
       </div>
-      </div>  
     </div>
   </div>
 </template>
@@ -42,18 +44,27 @@ export default {
     return {
       uuid: "",
       instData: [],
+      tx_hash: "",
     };
   },
-  async mounted() {
-    console.log("query new tx", this.$route.query);
-    this.tx_hash = this.$route.query.txHash;
-    const response = await fetch("http://localhost:8000/init/" + this.tx_hash);
-    const responseJson = await response.json();
-    this.uuid = responseJson.uuid;
-    this.instData = responseJson.program_metas;
-    console.log(this.instData, this.uuid);
+  watch: {
+    '$route.query.txHash': {
+    handler: async function(tx_hash) {
+      this.tx_hash = tx_hash;
+      await this.load(tx_hash)
+    },
+    deep: true,
+    immediate: true
+  }
   },
   methods: {
+    async load(tx_hash) {
+      const response = await fetch("http://localhost:8000/init/" + tx_hash);
+      const responseJson = await response.json();
+      this.uuid = responseJson.uuid;
+      this.instData = responseJson.program_metas;
+      console.log(this.instData, this.uuid);
+    },
     startDebugger(index) {
       console.log(
         "start debugger",
@@ -75,17 +86,16 @@ export default {
 </script>
   
   <style>
-  .program-choice-header {
+.program-choice-header {
   width: 100%;
   height: 40px;
   margin-top: 80px;
   font-size: 15px;
   color: #e0e4e6;
   text-align: center;
-  }
+}
 
-
-  .program-view {
+.program-view {
   margin-top: 40px;
   position: relative;
   display: flex;
@@ -103,13 +113,12 @@ export default {
   background: #201c1c;
   overflow: scroll;
   border-radius: 6px;
-
 }
 
 .program-wrap {
   margin-right: 20px;
   position: relative;
-  background: #e0e4e6;
+  background: #595a5c;
   padding: 1px;
   border-radius: 6px;
   border-width: 1em;

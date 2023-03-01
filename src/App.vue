@@ -1,44 +1,63 @@
 <template>
-  <h3>HELOOOOO</h3>
-    <div class="tx-hash-wrap">
-      <form class="tx-hash-input" @submit.prevent="loadTx">
-        <input
-          style="width: 400px"
-          key="input"
-          type="text"
-          placeholder="tx hash"
-          v-model="txHash"
-          role="link"
-        />
-        <button style="cursor: pointer">go</button>
-      </form>
-    </div>
-    <router-view />
-    </template>
+  <div class="tx-hash-wrap">
+    <form class="tx-hash-input" @submit.prevent="loadTx">
+      <input
+        style="width: 400px"
+        key="input"
+        type="text"
+        placeholder="tx hash"
+        v-model="txHash"
+        role="link"
+      />
+      <button style="cursor: pointer">go</button>
+    </form>
+  </div>
+  <router-view />
+</template>
 
     <script>
-
-    export default {
-      name: 'App',
-      data() {
-        return {
-          txHash: '',
-          instData: [],
-        };
-      },
-      methods: {
-        loadTx() {
-          this.$router.push({name: "choose", query: {txHash: this.txHash}});
-        },
-      },
+export default {
+  name: "App",
+  data() {
+    return {
+      txHash: "",
     };
-    </script>
+  },
+  methods: {
+    loadTx() {
+      // console.log("load tx", this.txHash);
+        this.$router.push({ name: "choose", query: { txHash: this.txHash } });
+    },
+  },
+};
+</script>
 
 <style>
 body {
-  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji";
-  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
+    Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-size: 12px !important;
   background-color: #201c1c;
+}
+/* width and height of the scrollbar track */
+::-webkit-scrollbar {
+  width: 1px;
+  height: 1px;
+}
+
+/* background color of the scrollbar track */
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* color of the scrollbar thumb */
+::-webkit-scrollbar-thumb {
+  background-color: #888;
+}
+
+/* color of the scrollbar thumb on hover */
+::-webkit-scrollbar-thumb:hover {
+  background-color: #555;
 }
 
 .tx-hash-wrap {
@@ -50,9 +69,9 @@ body {
   text-align: center;
   width: 100%;
   border: none;
-  background-color: #201c1c;
+  background-color: transparent;
   color: white;
-  font-size: 14px;
+  font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
 }

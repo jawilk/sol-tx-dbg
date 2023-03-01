@@ -2,28 +2,29 @@
   <div class="debug-panel">
     <div class="debugDragHandle" title="drag me">~</div>
     <span
-      class="continue"
+      class="button-purple"
       @click="continue_"
       title="continue"
       :class="{ deactivated: !isActive }"
       >&#9658;</span
     >
     <span
-      class="arrow-left-right"
+      class="button-purple"
       @click="next"
       title="next"
       :class="{ deactivated: !isActive }"
       >&#8594;</span
     >
-    <span class="arrow-left-right deactivated" title="reverse">&#8592;</span>
+    <span class="deactivated" title="reverse">&#8592;</span>
     <span
-      class="arrow-down-up"
+      class="button-purple"
+      @click="stepIn"
       title="step in"
       :class="{ deactivated: !isActive }"
       >&#8595;</span
     >
     <span
-      class="arrow-down-up"
+      class="deactivated"
       title="step out"
       :class="{ deactivated: !isActive }"
       >&#8593;</span
@@ -46,6 +47,10 @@ export default {
     isRestart: Boolean,
   },
   methods: {
+    stepIn() {
+      if (!this.isActive) return;
+      this.$emit("stepIn");
+    },
     continue_() {
       if (!this.isActive) return;
       this.$emit("continue");
@@ -89,21 +94,12 @@ export default {
 }
 
 .debugDragHandle {
-  color: #9945ff;
+  color: #03E1FF;
   text-align: center;
   background-color: transparent;
 }
 
-.arrow-left-right {
-  color: #9945ff;
-}
-
-.arrow-down-up {
-  pointer-events: none;
-  color: #858585;
-}
-
-.continue {
+.button-purple {
   color: #9945ff;
   cursor: pointer;
 }
