@@ -107,6 +107,7 @@ fn get_tx_info(tx_hash_str: &str) -> InitResponse {
         };
 
         if let solana_transaction_status::UiMessage::Raw(message) = tx.message {
+            println!("msg: {:?}", message);
             for inst in message.instructions {
                 let mut cpi_programs = vec![];
                 for account_index in inst.accounts.iter() {
