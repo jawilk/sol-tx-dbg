@@ -1,0 +1,84 @@
+[package]
+name = "solana-runtime"
+version = "1.14.13"
+description = "Solana runtime"
+authors = ["Solana Maintainers <maintainers@solana.foundation>"]
+repository = "https://github.com/solana-labs/solana"
+license = "Apache-2.0"
+homepage = "https://solana.com/"
+documentation = "https://docs.rs/solana-runtime"
+edition = "2021"
+
+[dependencies]
+arrayref = "0.3.6"
+bincode = "1.3.3"
+blake3 = "1.3.1"
+bv = { version = "0.11.1", features = ["serde"] }
+bytemuck = "1.11.0"
+byteorder = "1.4.3"
+bzip2 = "0.4.3"
+crossbeam-channel = "0.5"
+dashmap = { version = "4.0.2", features = ["rayon", "raw-api"] }
+dir-diff = "0.3.2"
+flate2 = "1.0.24"
+fnv = "1.0.7"
+im = { version = "15.1.0", features = ["rayon", "serde"] }
+index_list = "0.2.7"
+itertools = "0.10.3"
+lazy_static = "1.4.0"
+log = "0.4.17"
+lru = "0.7.7"
+lz4 = "1.24.0"
+memmap2 = "0.5.3"
+num-derive = { version = "0.3" }
+num-traits = { version = "0.2" }
+num_cpus = "1.13.1"
+once_cell = "1.12.0"
+ouroboros = "0.15.0"
+rand = "0.7.0"
+rayon = "1.5.3"
+regex = "1.5.6"
+serde = { version = "1.0.138", features = ["rc"] }
+serde_derive = "1.0.103"
+solana-address-lookup-table-program = "=1.14.13"
+solana-bucket-map = "=1.14.13"
+solana-compute-budget-program = "=1.14.13"
+solana-config-program = "=1.14.13"
+solana-frozen-abi = "=1.14.13"
+solana-frozen-abi-macro = "=1.14.13"
+solana-measure = "=1.14.13"
+solana-metrics = "=1.14.13"
+solana-program-runtime = "=1.14.13"
+solana-rayon-threadlimit = "=1.14.13"
+solana-sdk = "=1.14.13"
+solana-stake-program = "=1.14.13"
+solana-vote-program = "=1.14.13"
+solana-zk-token-proof-program = "=1.14.13"
+solana-zk-token-sdk = "=1.14.13"
+strum = { version = "0.24", features = ["derive"] }
+strum_macros = "0.24"
+symlink = "0.1.0"
+tar = "0.4.38"
+tempfile = "3.3.0"
+thiserror = "1.0"
+zstd = "0.11.2"
+
+[lib]
+crate-type = ["lib"]
+name = "solana_runtime"
+
+[dev-dependencies]
+assert_matches = "1.5.0"
+ed25519-dalek = "=1.0.1"
+libsecp256k1 = "0.6.0"
+rand_chacha = "0.2.2"
+solana-logger = "=1.14.13"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[build-dependencies]
+rustc_version = "0.4"
+
+[[bench]]
+name = "prioritization_fee_cache"
