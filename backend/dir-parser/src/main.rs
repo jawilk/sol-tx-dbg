@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json;
-use walkdir::WalkDir; // 1.0.68
+use walkdir::WalkDir;
 
-// A type to represent a path, split into its component parts
+
 #[derive(Debug, Serialize)]
 struct Path {
     full: String,
@@ -17,9 +17,6 @@ impl Path {
     }
 }
 
-// A recursive type to represent a directory tree.
-// Simplification: If it has children, it is considered
-// a directory, else considered a file.
 #[derive(Debug, Clone, Serialize)]
 struct Dir {
     name: String,
@@ -59,13 +56,7 @@ fn dir(val: &str) -> Dir {
 }
 
 fn main() {
-    // Form our INPUT:  a list of paths.
-    let mut paths = vec![
-        // Path::new("child1/grandchild1.txt"),
-        // Path::new("child1/grandchild2.json"),
-        // Path::new("child2/grandchild3.pdf"),
-        // Path::new("child3"),
-    ];
+    let mut paths = vec![];
 
     for entry in WalkDir::new("code") {
         let tmp = entry.unwrap();
@@ -75,10 +66,6 @@ fn main() {
         ));
     }
 
-    // Transformation:
-    // A recursive algorithm that converts the list of paths
-    // above to Dir (tree) below.
-    // ie: paths --> dir
     let mut top = dir("code");
     for path in paths.iter() {
         build_tree(&mut top, &path.parts, 0, &path.full);
@@ -89,7 +76,6 @@ fn main() {
         top
     );
 
-    // Output:  textual `tree` format
     print_dir(&top, 0);
 
     let res_string = serde_json::to_string(&top).unwrap();
