@@ -3,6 +3,7 @@ extern crate rocket;
 
 use std::collections::HashMap;
 use std::fs::File;
+use std::io::Read;
 use std::io::Write;
 use std::str::FromStr;
 use std::sync::Mutex;
@@ -15,9 +16,10 @@ use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
 use rocket::{Request, Response};
 
-use rocket::http::RawStr;
 use rocket::request::FromParam;
+use rocket::response::{self, Responder};
 
+use rocket::http::Status;
 use rocket::serde::json::{json, Value};
 use rocket::serde::Serialize;
 
@@ -28,7 +30,11 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
 use solana_sdk::system_program;
 use solana_transaction_status::EncodedTransaction;
+use solana_transaction_status::UiTransaction;
 use solana_transaction_status::UiTransactionEncoding;
+
+use std::error::Error;
+use std::fmt;
 
 use uuid::Uuid;
 
@@ -76,37 +82,95 @@ struct InitResponse {
     program_metas: Vec<ProgramMeta>,
 }
 
-fn get_tx_info(tx_hash_str: &str) -> InitResponse {
+#[derive(Debug)]
+enum InitError {
+    EncodedFail(String),
+    Timeout(String),
+    DeserializingFail(String),
+}
+
+impl fmt::Display for InitError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            InitError::EncodedFail(s) => write!(f, "{}", s),
+            InitError::Timeout(s) => write!(f, "{}", s),
+            InitError::DeserializingFail(s) => write!(f, "{}", s),
+        }
+    }
+}
+
+impl<'r, 'o: 'r> Responder<'r, 'o> for InitError {
+    fn respond_to(self, req: &'r Request<'_>) -> response::Result<'o> {
+        match self {
+            _ => Status::InternalServerError.respond_to(req),
+        }
+    }
+}
+
+impl Error for InitError {}
+
+fn load_tx(tx_hash_str: &str, rpc_client: &RpcClient) -> Result<UiTransaction, InitError> {
+    let tx = match File::open(format!("../transactions/{tx_hash_str}.json")) {
+        // Tx already exists
+        Ok(mut file) => {
+            println!("Tx already cached!");
+            let mut buf = vec![];
+            file.read_to_end(&mut buf).unwrap();
+            match serde_json::from_slice::<UiTransaction>(&buf[..]) {
+                Ok(tx) => tx,
+                _ => {
+                    return Err(InitError::DeserializingFail(
+                        "Error deserializing tx".into(),
+                    ))
+                }
+            }
+        }
+        // New tx, fetch from rpc
+        Err(_) => {
+            println!("New tx!");
+            let config = RpcTransactionConfig {
+                encoding: Some(UiTransactionEncoding::Json),
+                commitment: Some(CommitmentConfig::confirmed()),
+                max_supported_transaction_version: Some(0),
+            };
+            let tx_hash = Signature::from_str(&tx_hash_str).unwrap();
+            let now = Instant::now();
+            let tx = loop {
+                match rpc_client.get_transaction_with_config(&tx_hash, config) {
+                    Ok(tx) => break tx.transaction.transaction,
+                    _ => thread::sleep(time::Duration::from_secs(1)),
+                }
+                if now.elapsed().as_secs() > 5 {
+                    return Err(InitError::Timeout("Couldn't fetch transaction".into()));
+                }
+            };
+            match tx {
+                EncodedTransaction::Json(tx) => {
+                    let data = serde_json::to_vec(&tx).unwrap();
+                    let mut file =
+                        File::create(format!("../transactions/{tx_hash_str}.json")).unwrap();
+                    file.write_all(&data).unwrap();
+                    tx
+                }
+                _ => {
+                    return Err(InitError::EncodedFail(
+                        "EncodedTransaction parse failed".into(),
+                    ));
+                }
+            }
+        }
+    };
+    Ok(tx)
+}
+
+fn get_tx_info(tx_hash_str: &str) -> Result<InitResponse, InitError> {
     let mut program_metas = vec![];
     let rpc_client = RpcClient::new("https://api.mainnet-beta.solana.com".to_string());
-    let config = RpcTransactionConfig {
-        encoding: Some(UiTransactionEncoding::Json),
-        commitment: Some(CommitmentConfig::confirmed()),
-        max_supported_transaction_version: Some(0),
-    };
-    let tx_hash = Signature::from_str(&tx_hash_str).unwrap();
-    let now = Instant::now();
-    let tx = loop {
-        match rpc_client.get_transaction_with_config(&tx_hash, config) {
-            Ok(tx) => break tx.transaction.transaction,
-            _ => thread::sleep(time::Duration::from_secs(1)),
-        }
-        if now.elapsed().as_secs() > 5 {
-            panic!("Error getting transaction!");
-        }
-    };
-    if let EncodedTransaction::Json(tx) = tx {
-        // Save tx to disk to access later from POC
-        let data = serde_json::to_vec(&tx).unwrap();
-        match File::create(format!("../transactions/{tx_hash_str}.json")) {
-            Ok(mut file) => file.write_all(&data).unwrap(),
-            Err(e) => match e.kind() {
-                std::io::ErrorKind::AlreadyExists => (),
-                _ => panic!("Error create file {:?}", e),
-            },
-        };
 
-        if let solana_transaction_status::UiMessage::Raw(message) = tx.message {
+    let tx = load_tx(tx_hash_str, &rpc_client).unwrap();
+
+    match tx.message {
+        solana_transaction_status::UiMessage::Raw(message) => {
             println!("msg: {:?}", message);
             for inst in message.instructions {
                 let mut cpi_programs = vec![];
@@ -148,17 +212,18 @@ fn get_tx_info(tx_hash_str: &str) -> InitResponse {
                 });
             }
         }
+        _ => panic!("Parsing message"),
     }
-    InitResponse {
+    Ok(InitResponse {
         uuid: Uuid::new_v4().to_string(),
         program_metas,
-    }
+    })
 }
 
 #[get("/init/<tx_hash>")]
-fn init(tx_hash: TxHash) -> Value {
+fn init(tx_hash: TxHash) -> Result<Value, InitError> {
     println!("hash here: {} {}", tx_hash.0, tx_hash.0.len());
-    json!(get_tx_info(&tx_hash.0))
+    Ok(json!(get_tx_info(&tx_hash.0)?))
 }
 
 #[launch]
