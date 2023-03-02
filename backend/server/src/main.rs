@@ -14,12 +14,11 @@ use lazy_static::lazy_static;
 
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
+use rocket::http::Status;
 use rocket::{Request, Response};
 
 use rocket::request::FromParam;
-use rocket::response::{self, Responder};
 
-use rocket::http::Status;
 use rocket::serde::json::{json, Value};
 use rocket::serde::Serialize;
 
@@ -28,13 +27,11 @@ use solana_client::rpc_config::RpcTransactionConfig;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
-use solana_sdk::system_program;
 use solana_transaction_status::EncodedTransaction;
 use solana_transaction_status::UiTransaction;
 use solana_transaction_status::UiTransactionEncoding;
 
-use std::error::Error;
-use std::fmt;
+use anyhow::anyhow;
 
 use uuid::Uuid;
 
@@ -77,53 +74,19 @@ struct ProgramMeta {
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
 struct InitResponse {
-    /// To identify the request (i.e. account data etc.)
+    /// To identify the request (e.g. account data etc.)
     uuid: String,
     program_metas: Vec<ProgramMeta>,
 }
 
-#[derive(Debug)]
-enum InitError {
-    EncodedFail(String),
-    Timeout(String),
-    DeserializingFail(String),
-}
-
-impl fmt::Display for InitError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            InitError::EncodedFail(s) => write!(f, "{}", s),
-            InitError::Timeout(s) => write!(f, "{}", s),
-            InitError::DeserializingFail(s) => write!(f, "{}", s),
-        }
-    }
-}
-
-impl<'r, 'o: 'r> Responder<'r, 'o> for InitError {
-    fn respond_to(self, req: &'r Request<'_>) -> response::Result<'o> {
-        match self {
-            _ => Status::InternalServerError.respond_to(req),
-        }
-    }
-}
-
-impl Error for InitError {}
-
-fn load_tx(tx_hash_str: &str, rpc_client: &RpcClient) -> Result<UiTransaction, InitError> {
+fn load_tx(tx_hash_str: &str, rpc_client: &RpcClient) -> anyhow::Result<UiTransaction> {
     let tx = match File::open(format!("../transactions/{tx_hash_str}.json")) {
         // Tx already exists
         Ok(mut file) => {
             println!("Tx already cached!");
             let mut buf = vec![];
             file.read_to_end(&mut buf).unwrap();
-            match serde_json::from_slice::<UiTransaction>(&buf[..]) {
-                Ok(tx) => tx,
-                _ => {
-                    return Err(InitError::DeserializingFail(
-                        "Error deserializing tx".into(),
-                    ))
-                }
-            }
+            serde_json::from_slice::<UiTransaction>(&buf[..])?
         }
         // New tx, fetch from rpc
         Err(_) => {
@@ -141,7 +104,7 @@ fn load_tx(tx_hash_str: &str, rpc_client: &RpcClient) -> Result<UiTransaction, I
                     _ => thread::sleep(time::Duration::from_secs(1)),
                 }
                 if now.elapsed().as_secs() > 5 {
-                    return Err(InitError::Timeout("Couldn't fetch transaction".into()));
+                    return Err(anyhow!("Couldn't fetch transaction"));
                 }
             };
             match tx {
@@ -152,18 +115,14 @@ fn load_tx(tx_hash_str: &str, rpc_client: &RpcClient) -> Result<UiTransaction, I
                     file.write_all(&data).unwrap();
                     tx
                 }
-                _ => {
-                    return Err(InitError::EncodedFail(
-                        "EncodedTransaction parse failed".into(),
-                    ));
-                }
+                _ => return Err(anyhow!("EncodedTransaction parse failed")),
             }
         }
     };
     Ok(tx)
 }
 
-fn get_tx_info(tx_hash_str: &str) -> Result<InitResponse, InitError> {
+fn get_tx_info(tx_hash_str: &str) -> anyhow::Result<InitResponse> {
     let mut program_metas = vec![];
     let rpc_client = RpcClient::new("https://api.mainnet-beta.solana.com".to_string());
 
@@ -176,9 +135,6 @@ fn get_tx_info(tx_hash_str: &str) -> Result<InitResponse, InitError> {
                 let mut cpi_programs = vec![];
                 for account_index in inst.accounts.iter() {
                     let account = &message.account_keys[*account_index as usize];
-                    if *account == system_program::id().to_string() {
-                        continue;
-                    }
                     let account_info = rpc_client.get_account(&Pubkey::from_str(account).unwrap());
                     match account_info {
                         Ok(account_info) => {
@@ -212,7 +168,7 @@ fn get_tx_info(tx_hash_str: &str) -> Result<InitResponse, InitError> {
                 });
             }
         }
-        _ => panic!("Parsing message"),
+        _ => return Err(anyhow!("Parsing message failed.")),
     }
     Ok(InitResponse {
         uuid: Uuid::new_v4().to_string(),
@@ -221,9 +177,12 @@ fn get_tx_info(tx_hash_str: &str) -> Result<InitResponse, InitError> {
 }
 
 #[get("/init/<tx_hash>")]
-fn init(tx_hash: TxHash) -> Result<Value, InitError> {
+fn init(tx_hash: TxHash) -> Result<Value, Status> {
     println!("hash here: {} {}", tx_hash.0, tx_hash.0.len());
-    Ok(json!(get_tx_info(&tx_hash.0)?))
+    match get_tx_info(&tx_hash.0) {
+        Ok(tx) => Ok(json!(tx)),
+        Err(_) => Err(Status::InternalServerError),
+    }
 }
 
 #[launch]
