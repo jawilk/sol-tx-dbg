@@ -1,22 +1,20 @@
+use anyhow::anyhow;
+use std::fs;
+use std::fs::File;
+use std::io::Read;
+use std::io::{BufRead, BufReader};
 use std::{env, str::FromStr};
 
 use poc_framework::{Environment, LocalEnvironment};
+use solana_bpf_loader_program::set_port;
 use solana_client::rpc_client::RpcClient;
+use solana_program::instruction::{AccountMeta, Instruction};
+use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_program};
+use solana_transaction_status::UiRawMessage;
 use solana_transaction_status::UiTransaction;
 
-use solana_transaction_status::UiRawMessage;
-
-// use solana_program::native_token::lamports_to_sol;
-use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_program};
-
-use solana_program::instruction::{AccountMeta, Instruction};
-// use spl_token_2022::extension::StateWithExtensions;
-// use spl_token_2022::state::Account;
-
-use solana_bpf_loader_program::set_port;
-use std::fs::File;
-
-use std::io::Read;
+const SUPPORTED_PROGRAMS: [&'static str; 1] =
+    ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL, TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"];
 
 pub fn main() {
     let args: Vec<_> = env::args().collect();
@@ -50,29 +48,8 @@ fn create_single_inst(
     }
 }
 
-// fn get_signers(accounts: &Vec<AccountMeta>) -> Vec<&Pubkey> {
-//     let mut signers = vec![];
-//     for acc in accounts.iter() {
-//         if acc.is_signer {
-//             signers.push(&acc.pubkey);
-//         }
-//     }
-//     signers
-// }
-
-fn sanitize_accounts(accounts: &Vec<AccountMeta>, programs: &Vec<Pubkey>) -> Vec<Pubkey> {
-    let mut accounts_sanitized = vec![];
-    for acc in accounts.iter() {
-        if !programs.contains(&acc.pubkey) {
-            accounts_sanitized.push(acc.pubkey);
-        }
-    }
-    accounts_sanitized
-}
-
 fn load_tx(tx_hash: &str) -> UiTransaction {
-    // Read
-    if let Ok(mut file) = File::open(format!("../transactions/{tx_hash}.json")) {
+    if let Ok(mut file) = File::open(format!("../cache/transactions/{tx_hash}.json")) {
         let mut buf = vec![];
         if file.read_to_end(&mut buf).is_ok() {
             match serde_json::from_slice::<UiTransaction>(&buf[..]) {
@@ -87,9 +64,12 @@ fn load_tx(tx_hash: &str) -> UiTransaction {
     }
 }
 
-fn get_inst(tx_hash: &str, inst_nr: usize) -> (Instruction, Pubkey) {
-    // load whole instruction from disc
-    let tx = load_tx(tx_hash);
+fn get_inst(
+    tx_hash_str: &str,
+    inst_nr: usize,
+) -> anyhow::Result<(Instruction, Vec<String>, Vec<String>, Pubkey)> {
+    // Load tx from disk
+    let tx = load_tx(tx_hash_str);
     match tx.message {
         solana_transaction_status::UiMessage::Raw(message) => {
             println!("msg: {:?}", message);
@@ -107,115 +87,83 @@ fn get_inst(tx_hash: &str, inst_nr: usize) -> (Instruction, Pubkey) {
             let signer_accs = (0..message.header.num_required_signatures
                 + message.header.num_readonly_signed_accounts)
                 .collect::<Vec<_>>();
-            (
+
+            let inst_file = format!("../cache/instructions/{tx_hash_str}/{inst_nr}.txt");
+            let file = fs::File::open(inst_file)?;
+            let reader = BufReader::new(file);
+            let mut programs_supported = vec![];
+            let mut programs_not_supported = vec![];
+            for program in reader.lines() {
+                let program = program?;
+                if program != system_program::id().to_string() {
+                    let is_supported = SUPPORTED_PROGRAMS.iter().any(|&p| p == program);
+                    if is_supported {
+                        programs_supported.push(program);
+                    } else {
+                        programs_not_supported.push(program);
+                    }
+                }
+            }
+
+            Ok((
                 create_single_inst(&message, inst_nr, writable_accs, signer_accs),
+                programs_supported,
+                programs_not_supported,
                 payer,
-            )
+            ))
         }
-        _ => panic!("NO INST FOUND"),
+        _ => return Err(anyhow!("Parsing message failed.")),
     }
 }
 
+fn sanitize_accounts(
+    accounts: &Vec<AccountMeta>,
+    programs_supported: &Vec<String>,
+    programs_not_supported: &Vec<String>,
+    accounts_avoid: &Vec<String>,
+) -> Vec<Pubkey> {
+    let mut accounts_sanitized = vec![];
+    for acc in accounts.iter() {
+        if !programs_supported.contains(&acc.pubkey.to_string())
+            && !programs_not_supported.contains(&acc.pubkey.to_string())
+            && !accounts_avoid.contains(&acc.pubkey.to_string())
+        {
+            accounts_sanitized.push(acc.pubkey);
+        }
+    }
+    accounts_sanitized
+}
+
 fn setup(tx_hash: &str, inst_nr: usize, port: u16) {
-    println!("PORT RUST: {}", port); // Set debugger port
-    set_port(port); // - 1);
-
-    let (inst, payer) = get_inst(tx_hash, inst_nr);
-
-    // let helloworld_program =
-    // Pubkey::from_str("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL").unwrap();
-    // let mut dir = env::current_exe().unwrap();
-    // let path_hello_world_binary = {
-    // dir.pop();
-    // dir.pop();
-    // dir.pop();
-    // dir.push("tests/elfs/associated.so");
-    // dir.to_str()
-    // }
-    // .unwrap();
-
-    let token_pubkey = Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap();
+    println!("PORT framework: {}", port);
+    set_port(port);
 
     let rpc_client = RpcClient::new("https://api.mainnet-beta.solana.com".to_string());
-    println!(
-        "loadding-elf: {}",
-        format!("tests/elfs/{}.so", inst.program_id)
-    );
 
-    // TODO: get all in inst involved program IDs
-    let mut programs = vec![];
-    programs.push(inst.program_id);
-    programs.push(token_pubkey);
+    let (inst, programs_supported, programs_not_supported, payer) =
+        get_inst(tx_hash, inst_nr).unwrap();
+
+    let mut accounts_avoid = vec![];
+    accounts_avoid.push("7NrmtYT7DsviTAzfpfgxPzywabGALCtz5mrxei3zCa5v".to_owned());
 
     let mut env = LocalEnvironment::builder()
-        .clone_accounts_from_cluster(&sanitize_accounts(&inst.accounts, &programs), &rpc_client)
-        .add_program(
-            inst.program_id,
-            format!("tests/elfs/{}.so", inst.program_id),
-        )
-        .add_program(
-            token_pubkey,
-            format!(
-                "tests/elfs/{}.so",
-                "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        .clone_accounts_from_cluster(
+            &sanitize_accounts(
+                &inst.accounts,
+                &programs_supported,
+                &programs_not_supported,
+                &accounts_avoid,
             ),
+            &rpc_client,
         )
+        .add_programs_supported(&programs_supported)
+        .add_programs_not_supported(&programs_not_supported, &rpc_client)
         // // Add the original payer
         .add_account_with_lamports(payer, system_program::ID, sol_to_lamports(1.0))
         .build();
 
     println!("payer: {:?}", payer);
-    //    if let Ok(associated_token_account) = StateWithExtensions::<Account>::unpack(
-    //      &env.get_account(inst.accounts[1].pubkey).unwrap().data,
-    //) {
-    //  println!("Account owner: {:?}", associated_token_account);
     println!("inst: {:?}", inst);
+
     env.execute_as_transaction_unsigned(&[inst], &payer);
-    //}
-    /*
-    let mut dir = env::current_exe().unwrap();
-    let path_hello_world_binary = {
-        dir.pop();
-        dir.pop();
-        //dir.push("deploy");
-        //dir.push("helloworld_rust_unoptimized.so");
-        dir.pop();
-        dir.push("tests/elfs/hello.so");
-        dir.to_str()
-    }
-    .unwrap();
-    let a_lot_of_money = sol_to_lamports(1_000_000.0);
-
-    let helloworld_program =
-        Pubkey::from_str("H311ot3333333333333333333333333333333333333").unwrap();
-    let payer = keypair(0);
-    let greeting_account = keypair(1);
-    let data: [u8; 4] = [0; 4];
-
-    //let a_lot_of_money = sol_to_lamports(1_000_000.0);
-
-    let mut env = LocalEnvironment::builder()
-        .add_program(helloworld_program, path_hello_world_binary)
-        // .add_programs_to_debug(&[&helloworld_program])
-        .add_account_with_lamports(payer.pubkey(), system_program::ID, sol_to_lamports(1.0))
-        .add_account_with_data(greeting_account.pubkey(), helloworld_program, &data, false)
-        .build();
-
-    // env.execute_as_transaction_unsigned(
-    // &[Instruction {
-    // program_id: helloworld_program,
-    // accounts: vec![AccountMeta::new(greeting_account.pubkey(), true)],
-    // data: vec![0, 0, 0],
-    // }],
-    // &payer.pubkey(),
-    // )
-    env.execute_as_transaction(
-        &[Instruction {
-            program_id: helloworld_program,
-            accounts: vec![AccountMeta::new(greeting_account.pubkey(), true)],
-            data: vec![0, 0, 0, 0],
-        }],
-        &[&greeting_account],
-    )
-    .print();*/
 }

@@ -1,11 +1,11 @@
 use crate::solana_sdk::clock::UnixTimestamp;
+use std::str::FromStr;
 use std::{
     collections::{HashMap, HashSet},
     convert::TryInto,
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
-use std::str::FromStr;
 
 use borsh::BorshDeserialize;
 use bpf_loader_upgradeable::UpgradeableLoaderState;
@@ -78,7 +78,7 @@ pub trait Environment {
     where
         VersionedTransaction: From<T>;
     fn simulate_transaction<T>(&mut self, txs: T)
-       where
+    where
         VersionedTransaction: From<T>;
     /// Fetch a recent blockhash, for construction of transactions.
     #[deprecated(since = "0.2.0", note = "Please use `get_latest_blockhash()` instead")]
@@ -127,12 +127,13 @@ pub trait Environment {
     fn tx_with_instructions_unsigned(
         &self,
         instructions: &[Instruction],
-        payer: &Pubkey
+        payer: &Pubkey,
     ) -> Transaction {
         //let mut signer_vec = vec![&payer];
         //signer_vec.extend_from_slice(signers);
 
-        let message = Message::new_with_blockhash(instructions, Some(&payer), &self.get_latest_blockhash());
+        let message =
+            Message::new_with_blockhash(instructions, Some(&payer), &self.get_latest_blockhash());
         println!("\nmessage: {:?}\n", message);
         //let num_sigs: usize = message.header.num_required_signatures.into();
         /*let required_sigs = message.account_keys[..num_sigs]
@@ -152,7 +153,7 @@ pub trait Environment {
             println!("unnecessary signature from {}", key.to_string());
         }*/
 
-        let mut tx = Transaction::new_unsigned(message);
+        let tx = Transaction::new_unsigned(message);
         //tx.sign(&[&self.payer()], self.get_latest_blockhash());
         tx
     }
@@ -166,12 +167,8 @@ pub trait Environment {
         let tx = self.tx_with_instructions(instructions, signers);
         return self.execute_transaction(tx);
     }
-    
-    fn execute_as_transaction_unsigned(
-        &mut self,
-        instructions: &[Instruction],
-        payer: &Pubkey
-    )  {
+
+    fn execute_as_transaction_unsigned(&mut self, instructions: &[Instruction], payer: &Pubkey) {
         let tx = self.tx_with_instructions_unsigned(instructions, payer);
         self.simulate_transaction(tx);
     }
@@ -575,11 +572,11 @@ impl Environment for LocalEnvironment {
         .encode(UiTransactionEncoding::Binary, Some(0))
         .expect("Failed to encode transaction")
     }
-    
-    fn simulate_transaction<T>(&mut self, tx: T) 
-        where
-        VersionedTransaction: From<T>
-        {
+
+    fn simulate_transaction<T>(&mut self, tx: T)
+    where
+        VersionedTransaction: From<T>,
+    {
         let tx = tx.into();
         /*let len = bincode::serialize(&tx).unwrap().len();
         if len > packet::PACKET_DATA_SIZE {
@@ -613,11 +610,9 @@ impl Environment for LocalEnvironment {
                 ..
             },
         )*/
-        let res = self.bank.simulate_transaction_unchecked(
-            tx_sanitized
-        );
+        let res = self.bank.simulate_transaction_unchecked(tx_sanitized);
         println!("RES: {:?}", res.result);
-                println!("RES: {:?}", res.logs);
+        println!("RES: {:?}", res.logs);
 
         /*let tx_post_token_balances = solana_ledger::token_balances::collect_token_balances(
             &self.bank,
@@ -779,10 +774,24 @@ impl LocalEnvironmentBuilder {
         self.config.add_account(pubkey, account.into());
         self
     }
+    
+    pub fn add_programs_not_supported(&mut self, programs: &Vec<String>, rpc_client: &RpcClient) -> &mut Self {
+        for program in programs {
+            //self.clone_upgradable_program_from_cluster(rpc_client, Pubkey::from_str(program).unwrap());
+            self.clone_account_from_cluster(Pubkey::from_str(program).unwrap(), rpc_client);
+        }
+        self
+    }
+    
+    pub fn add_programs_supported(&mut self, programs: &Vec<String>) -> &mut Self {
+        for program in programs {
+            self.add_program(Pubkey::from_str(program).unwrap(), format!("elfs/{program}.so"));
+        }
+        self
+    }
 
     /// Reads the program from the path and add it at the address into the environment.
     pub fn add_program<P: AsRef<Path>>(&mut self, pubkey: Pubkey, path: P) -> &mut Self {
-
         self.add_account_with_data(pubkey, bpf_loader::ID, &std::fs::read(path).unwrap(), true);
         self
     }
@@ -923,7 +932,7 @@ impl LocalEnvironmentBuilder {
                 lamports: account.lamports,
                 data: account.data,
                 executable: account.executable,
-                owner: if pubkey == Pubkey::from_str("7NrmtYT7DsviTAzfpfgxPzywabGALCtz5mrxei3zCa5v").unwrap() {Pubkey::from_str("11111111111111111111111111111111").unwrap()} else {account.owner},
+                owner: account.owner,
                 rent_epoch: 0,
             },
         )
@@ -951,7 +960,7 @@ impl LocalEnvironmentBuilder {
         let account = client
             .get_account(&pubkey)
             .expect("couldn't retrieve account");
-           println!("account {:?}", account);
+        println!("account {:?}", account);
         let upgradable: UpgradeableLoaderState = account.deserialize_data().unwrap();
         if let UpgradeableLoaderState::Program {
             programdata_address,
@@ -1044,9 +1053,12 @@ impl Environment for RemoteEnvironment {
     fn payer(&self) -> Keypair {
         clone_keypair(&self.payer)
     }
-    
-        fn simulate_transaction<T>(&mut self, txs: T)
-        where VersionedTransaction: From<T> {}
+
+    fn simulate_transaction<T>(&mut self, txs: T)
+    where
+        VersionedTransaction: From<T>,
+    {
+    }
 
     fn execute_transaction<T>(&mut self, tx: T) -> EncodedConfirmedTransactionWithStatusMeta
     where
