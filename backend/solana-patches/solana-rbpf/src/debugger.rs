@@ -1,9 +1,9 @@
 //! Debugger for the virtual machines' interpreter.
 
-use std::net::{TcpListener, TcpStream};
-use std::time::{Duration, Instant};
-use std::thread::sleep;
 use std::io;
+use std::net::{TcpListener, TcpStream};
+use std::thread::sleep;
+use std::time::{Duration, Instant};
 
 use gdbstub::common::Signal;
 use gdbstub::conn::ConnectionExt;
@@ -48,21 +48,21 @@ fn wait_for_tcp(host: &str, port: u16) -> DynResult<TcpStream> {
     // Timeout mostly as a hack to continue after cpi browser window was closed immediately
     let now = Instant::now();
     loop {
-      match sock.accept() {
-        Ok((stream, addr)) => {
-            eprintln!("Debugger connected from {}", addr);
-            return Ok(stream);
-        }
-        Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
-            if now.elapsed().as_secs() > 10 {
-                 println!("Error accepting connection (timeout): {:?}", e);
-                 return Err(e.into());
+        match sock.accept() {
+            Ok((stream, addr)) => {
+                eprintln!("Debugger connected from {}", addr);
+                return Ok(stream);
             }
-            sleep(Duration::new(1, 0));
-            continue;
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                if now.elapsed().as_secs() > 10 {
+                    println!("Error accepting connection (timeout): {:?}", e);
+                    return Err(e.into());
+                }
+                sleep(Duration::new(1, 0));
+                continue;
+            }
+            Err(e) => panic!("encountered IO error: {}", e),
         }
-        Err(e) => panic!("encountered IO error: {}", e),
-      }
     }
     //let (stream, addr) = sock.accept()?;
     //eprintln!("Debugger connected from {}", addr);
@@ -152,7 +152,15 @@ pub fn execute<V: Verifier, E: UserDefinedError, I: InstructionMeter>(
                     DebugState::Step => {
                         let mut stop_reason = match interpreter.step() {
                             Ok(None) => SingleThreadStopReason::DoneStep,
-                            Ok(result) => SingleThreadStopReason::Exited(result.unwrap_or(0) as u8),
+                            Ok(result) => {
+                                dbg_inner
+                                    .report_stop(
+                                        interpreter,
+                                        SingleThreadStopReason::Exited(result.unwrap_or(0) as u8),
+                                    )
+                                    .unwrap();
+                                break 'outer result;
+                            }
                             _ => SingleThreadStopReason::Terminated(Signal::SIGSTOP),
                         };
                         if interpreter.breakpoints.contains(&interpreter.get_dbg_pc()) {
