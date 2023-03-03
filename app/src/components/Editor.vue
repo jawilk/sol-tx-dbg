@@ -197,7 +197,7 @@ export default {
         console.log("(editor) NEW FILE", this.editorState);
         this.parseFile(
           this.files_url +
-            "/code/" +
+            "code/" +
             this.program_id +
             "/" +
             this.editorState.file

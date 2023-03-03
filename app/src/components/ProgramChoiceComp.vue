@@ -40,6 +40,7 @@ export default {
   name: "ProgramChoiceComp",
   data() {
     return {
+      init_url: "http://localhost:8000/init/",
       uuid: "",
       instData: [],
       tx_hash: "",
@@ -66,7 +67,7 @@ export default {
   },
   methods: {
     async load(tx_hash) {
-      const response = await fetch("http://localhost:8000/init/" + tx_hash);
+      const response = await fetch(this.init_url + tx_hash);
       const responseJson = await response.json();
       this.uuid = responseJson.uuid;
       this.instData = responseJson.program_metas;

@@ -1,5 +1,5 @@
 {
-  "name": "app-test-new",
+  "name": "sol-tx-dbg",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,13 +11,15 @@
     "@codemirror/lang-rust": "^6.0.1",
     "@codemirror/theme-one-dark": "^6.1.0",
     "@vscode/debugprotocol": "^1.59.0",
+    "bs58": "^5.0.0",
     "codemirror": "^6.0.1",
     "core-js": "^3.8.3",
     "prettier": "^2.8.3",
     "v-drag": "^3.0.8",
     "vue": "^3.2.13",
     "vue-codemirror": "^6.1.1",
-    "vue-grid-layout": "3.0.0-beta1"
+    "vue-grid-layout": "3.0.0-beta1",
+    "vue-router": "^4.1.6"
   },
   "devDependencies": {
     "@babel/core": "^7.12.16",

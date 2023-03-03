@@ -13,11 +13,11 @@ use std::{thread, time};
 use lazy_static::lazy_static;
 
 use rocket::fairing::{Fairing, Info, Kind};
+use rocket::fs::FileServer;
 use rocket::http::Header;
 use rocket::http::Status;
-use rocket::{Request, Response};
-
 use rocket::request::FromParam;
+use rocket::{Request, Response};
 
 use rocket::serde::json::{json, Value};
 use rocket::serde::Serialize;
@@ -187,7 +187,10 @@ fn init(tx_hash: TxHash) -> Result<Value, Status> {
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![init]).attach(Cors)
+    rocket::build()
+        .mount("/", routes![init])
+        .mount("/static", FileServer::from("static/"))
+        .attach(Cors)
 }
 
 pub struct Cors;
