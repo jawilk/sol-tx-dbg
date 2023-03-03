@@ -96,13 +96,12 @@ export default {
   props: {
     files_url: String,
     program_id: String,
-    file: Object,
-    breakpointsEditor: Array,
+    editorState: Object,
   },
   data() {
     return {
-      curFile: {},
-      prevBreakpointsEditor: null,
+      curFile: "",
+      prevBreakpointsEditor: [],
       is_first: true,
     };
   },
@@ -122,17 +121,6 @@ export default {
         })
       );
     },
-    breakpointsInit() {
-      console.log("BREAKPOINTS", this.breakpointsEditor);
-      this.breakpointsEditor.forEach((l) => {
-        const docPosition = this.view.state.doc.line(l).from;
-        this.view.dispatch(
-          this.getCodemirrorStates().state.update({
-            effects: breakpointEffect.of({ pos: docPosition, on: true }),
-          })
-        );
-      });
-    },
     async parseFile(url) {
       try {
         const fetchResponse = await fetch(url);
@@ -142,51 +130,51 @@ export default {
       }
     },
     toggleBreakpoint(pos) {
+      // is_first hack for focus/scroll
       console.log("is_first !!!!", this.is_first);
       let breakpoints = this.view.state.field(breakpointState);
       let hasBreakpoint = false;
       breakpoints.between(pos, pos, () => {
         hasBreakpoint = true;
       });
-      const effects = [breakpointEffect.of({ pos, on: !hasBreakpoint })]
+      const effects = [breakpointEffect.of({ pos, on: !hasBreakpoint })];
       if (this.is_first) {
         effects.push(
-        EditorView.scrollIntoView(pos, {
-              y: "center",
-            }))
+          EditorView.scrollIntoView(pos, {
+            y: "center",
+          })
+        );
       }
       this.view.dispatch(
         this.getCodemirrorStates().state.update({
-        effects: effects,
-        }),
+          effects: effects,
+        })
         // {scrollIntoView: 'always'},
       );
       this.is_first = false;
     },
-  },
-  watch: {
-    breakpointsEditor() {
-      console.log("breakpointsEditor", this.breakpointsEditor);
-      if (this.breakpointsEditor === undefined) {
+    handleBreakpoints() {
+      console.log("breakpointsEditor!", this.editorState.breakpoints, this.prevBreakpointsEditor);
+      if (this.editorState.breakpoints === undefined) {
         return;
       }
       if (this.prevBreakpointsEditor === null) {
-        this.breakpointsEditor.forEach((l) => {
+        this.editorState.breakpoints.forEach((l) => {
           const docPosition = this.view.state.doc.line(l).from;
           this.toggleBreakpoint(docPosition);
         });
 
-        this.prevBreakpointsEditor = this.breakpointsEditor;
+        this.prevBreakpointsEditor = this.editorState.breakpoints;
         return;
       }
       const difference = [
         // Add
-        ...this.breakpointsEditor.filter(
+        ...this.editorState.breakpoints.filter(
           (item) => !this.prevBreakpointsEditor.includes(item)
         ),
         // Delete
         ...this.prevBreakpointsEditor.filter(
-          (item) => !this.breakpointsEditor.includes(item)
+          (item) => !this.editorState.breakpoints.includes(item)
         ),
       ];
       difference.forEach((l) => {
@@ -195,14 +183,24 @@ export default {
       });
       console.log("difference", difference);
 
-      this.prevBreakpointsEditor = this.breakpointsEditor;
+      this.prevBreakpointsEditor = JSON.parse(
+        JSON.stringify(this.editorState.breakpoints)
+      );
     },
-    file() {
+  },
+  watch: {
+    editorState() {
+      console.log("(editor) file WATCHER", this.editorState, this.curFile);
       this.is_first = true;
-      if (this.file.name !== this.curFile.name) {
-        console.log("FILE", this.file);
+      if (this.editorState.file !== this.curFile) {
+        this.prevBreakpointsEditor = [];
+        console.log("(editor) NEW FILE", this.editorState);
         this.parseFile(
-          this.files_url + "/code/" + this.program_id + "/" + this.file.name
+          this.files_url +
+            "/code/" +
+            this.program_id +
+            "/" +
+            this.editorState.file
         )
           .then((response) => response.text())
           .then((txt) => {
@@ -216,19 +214,24 @@ export default {
               ],
             });
             this.view.setState(newState);
-            if (this.breakpointsEditor !== undefined) {
-              this.breakpointsInit();
+            if (this.editorState.breakpoints !== undefined) {
+              this.handleBreakpoints();
             }
-            if (this.file.line !== undefined) {
-              this.highlightLine(this.file.line);
+            if (this.editorState.line !== undefined) {
+              this.highlightLine(this.editorState.line);
             }
           });
-        this.curFile = this.file;
       } else {
-        if (this.file.line !== undefined) {
-          this.highlightLine(this.file.line);
+        console.log("(editor) ELSE No NEW FILE", this.editorState);
+
+        if (this.editorState.breakpoints !== undefined) {
+          this.handleBreakpoints();
+        }
+        if (this.editorState.line !== undefined) {
+          this.highlightLine(this.editorState.line);
         }
       }
+      this.curFile = this.editorState.file;
     },
   },
   setup(props, context) {

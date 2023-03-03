@@ -1,18 +1,17 @@
 <template>
   <div class="program-choice-header">
-    <p>
+    <span>
       This transaction contains
-      <span style="color: #98c379">{{ instData.length }}</span> instruction(s).
+      <span style="color: #98c379">{{ instData.length }}</span> instruction{{ pluralize }}.
       Please choose:
-    </p>
+    </span>
   </div>
   <div class="program-view">
     <div class="program-wrap" v-for="(program, index) in instData" :key="index">
-      <div class="program">
         <div class="program-header">{{ index }}</div>
         <div class="program-info">
-          Program ID: {{ program.program_id }}<br /><br />
           Program Name: {{ program.name ?? "Unknown" }}<br /><br />
+          Program ID: {{ program.program_id }}<br /><br />
           CPIs:
           {{ program.cpi_programs ? program.cpi_programs.join(", ") : "None"
           }}<br /><br />
@@ -32,7 +31,6 @@
             replay
           </button>
         </div>
-      </div>
     </div>
   </div>
 </template>
@@ -47,15 +45,24 @@ export default {
       tx_hash: "",
     };
   },
-  watch: {
-    '$route.query.txHash': {
-    handler: async function(tx_hash) {
-      this.tx_hash = tx_hash;
-      await this.load(tx_hash)
+  computed: {
+    pluralize() {
+      if (this.instData.length > 1) {
+        return "s";
+      } else {
+        return "";
+      }
     },
-    deep: true,
-    immediate: true
-  }
+  },
+  watch: {
+    "$route.query.txHash": {
+      handler: async function (tx_hash) {
+        this.tx_hash = tx_hash;
+        await this.load(tx_hash);
+      },
+      deep: true,
+      immediate: true,
+    },
   },
   methods: {
     async load(tx_hash) {
@@ -106,22 +113,20 @@ export default {
   color: #e0e4e6;
 }
 
-.program {
+.program-wrap {
   width: 400px;
   height: 600px;
   display: flex;
   background: #201c1c;
   overflow: scroll;
   border-radius: 6px;
-}
-
-.program-wrap {
-  margin-right: 20px;
   position: relative;
-  background: #595a5c;
+  border-style: solid;
+  border-color: #717171;
   padding: 1px;
   border-radius: 6px;
-  border-width: 1em;
+  border-width: 1px;
+  margin-right: 20px;
 }
 
 .program-header {
@@ -138,16 +143,12 @@ export default {
 .chooseBtn {
   width: 100px;
   height: 100px;
-  position: relative;
-  margin: auto;
-}
-
-.startBtn {
-  width: 100px;
-  height: 100px;
   position: absolute;
+  left: 50%;
+  bottom: 20px;
+  -webkit-transform: translateX(-50%);
+  transform: translateX(-50%);
   cursor: pointer;
-  bottom: 10px;
 }
 
 .startBtnDis {

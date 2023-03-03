@@ -1,10 +1,11 @@
 <template>
-  <div class="wrap">
+  <div class="wrap" :class="{ dragging: isDragging }">
     <div v-drag="{ handle: '#debugDragHandle' }">
       <DebugPanel
         :isActive="isActive"
         :isRestart="isRestart"
         @stepIn="stepIn"
+        @stepOut="stepOut"
         @next="next"
         @continue="continue_"
       />
@@ -12,8 +13,16 @@
     <span class="add-wrap">
       <button class="add-item" @click="addPanel" title="add panel">+</button>
     </span>
-    <p v-if="isCpi" class="program-status">CPI</p>
-    <p v-if="isFinished" style="color: red" class="program-status">Finished</p>
+    <p
+      class="program-status"
+      :class="{
+        'status-running': status === 'Running' || status === 'Running (CPI)',
+        'status-in-cpi': status === 'In CPI',
+        'status-finished': status === 'Finished',
+      }"
+    >
+      {{ status }}
+    </p>
     <p class="program-name" :title="program_id">{{ program_name }}</p>
   </div>
   <div class="content">
@@ -27,6 +36,9 @@
       :use-css-transforms="true"
     >
       <grid-item
+        @move="onDragStart"
+        @moved="onDragStop"
+        :class="{ dragging: isDragging }"
         v-for="item in layout"
         :key="item.i"
         :x="item.x"
@@ -205,36 +217,34 @@ export default {
       layout: startLayout,
       index: 0,
       colNum: 12,
-      file: {},
+      editorState: {},
+      breakpoints: {},
+      lineMark: {},
       tree: {},
       prev_node: null,
       seqId: 0,
       focus: false,
-      isFinished: false,
+      status: "",
       isDebuggerConnected: false,
       isActive: false,
       isRestart: false,
       disData: [],
-      breakpoints: {},
-      breakpointsEditor: [],
-      // breakpointsEditorRemove: null,
       uuid: "",
       tx_hash: "",
       inst_nr: 0,
       program_id: "",
       registers: [],
       variables: [],
-      isCpi: false,
       program_name: "",
-      program_real_path:
-        "/home/wj/projects/solana-program-library/associated-token-account/program/",
+      program_real_path: "/home/wj/temp/test-solana/program/",
+      isDragging: false,
     };
   },
   beforeCreate() {
-    window.addEventListener('beforeunload', this.handleWindowClose);
+    window.addEventListener("beforeunload", this.handleWindowClose);
   },
   unmounted() {
-    window.removeEventListener('beforeunload', this.handleWindowClose);
+    window.removeEventListener("beforeunload", this.handleWindowClose);
   },
   async mounted() {
     console.log("program query", this.$route.query);
@@ -253,10 +263,11 @@ export default {
     console.log("name", this.program_name);
     if (!this.$route.query.tx_hash) {
       console.log("IS CPI");
-      this.isCpi = true;
+      this.status = "Starting CPI...";
       this.LLDB["websocket"]["url"] = this.websocket_url + this.uuid;
     } else {
       console.log("NO CPI");
+      this.status = "Starting...";
       this.tx_hash = this.$route.query.tx_hash;
       this.inst_nr = this.$route.query.inst_nr;
       this.LLDB["websocket"]["url"] =
@@ -282,10 +293,24 @@ export default {
     this.isDebuggerConnected = true;
     this.isActive = true;
     console.log("mounted");
+    if (this.status === "Starting CPI...") {
+      this.status = "Running (CPI)";
+    } else {
+      this.status = "Running";
+    }
     // update panels
     await this.updateEditor();
   },
   methods: {
+    // To prevent text selection while dragging
+    onDragStart() {
+      this.isDragging = true;
+      console.log("drag start", this.isDragging);
+    },
+    onDragStop() {
+      this.isDragging = false;
+      console.log("drag stop", this.isDragging);
+    },
     handleWindowClose() {
       if (!this.isDebuggerConnected) {
         const ws = new WebSocket(this.websocket_url + this.uuid);
@@ -303,8 +328,7 @@ export default {
           return {
             files_url: this.files_url,
             program_id: this.program_id,
-            file: this.file,
-            breakpointsEditor: this.breakpointsEditor,
+            editorState: this.editorState,
           };
         case "TreeNode":
           return { node: this.tree, focus: this.focus };
@@ -314,7 +338,7 @@ export default {
           return { breakpoints: this.breakpoints };
         case "LLDBComp":
           return { executeLLDBCommand: this.executeLLDBCommand };
-          case "MemoryComp":
+        case "MemoryComp":
           return { getMemory: this.getMemory };
         case "NewComp":
           return { id: id };
@@ -380,12 +404,9 @@ export default {
     },
     // LLDB commands
     async loadElf() {
-      var data = await fetch(
-        this.files_url + "elfs/" + this.program_id + ".so"
-      );
       const file_name = this.program_id + ".so";
+      var data = await fetch(this.files_url + "elfs/" + file_name);
       data = await data["arrayBuffer"]();
-      console.log(data);
       this.LLDB.FS.writeFile(file_name, new Uint8Array(data));
       let res = this.LLDB.ccall("create_target", null, ["string"], [file_name]);
       this.LLDB._free(res);
@@ -401,7 +422,7 @@ export default {
     },
     async executeLLDBCommand(command) {
       if (!this.isActive) {
-        return "please wait for the current action to finish or restart"
+        return "please wait for the current action to finish or restart";
       }
       console.log("executeLLDBCommand", command);
       let resPtr = await this.LLDB.ccall(
@@ -416,7 +437,7 @@ export default {
     },
     async getMemory(address, bytes) {
       if (!this.isActive) {
-        return "please wait for the current action to finish or restart"
+        return "please wait for the current action to finish or restart";
       }
       const command = "mem read " + address + " -c " + bytes;
       let resPtr = await this.LLDB.ccall(
@@ -447,23 +468,26 @@ export default {
       } else {
         url = this.cpi_url + "?uuid=" + this.uuid + "&program_id=" + pubkey;
       }
+      this.status = "In CPI";
       window.open(url);
       // This will block till cpi finished
       await this.LLDB.ccall("request_next_with_cpi", "boolean", [], []);
+      this.status = "Running";
       console.log("CPI finished");
     },
     async check_finished() {
-      this.isFinished = await this.LLDB.ccall(
+      const isFinished = await this.LLDB.ccall(
         "should_terminate",
         "number",
         [],
         []
       );
-      if (this.isFinished === -1) {
+      if (isFinished === -1) {
+        this.status = "Finished";
         console.log("execution finished");
         this.cleanup();
         alert("execution finished");
-        if (!this.isCpi) {
+        if (this.status !== "In CPI") {
           this.isRestart = true;
           console.log("restart");
         }
@@ -487,6 +511,19 @@ export default {
         await this.handleCpi();
       }
       await this.check_finished();
+    },
+    async stepOut() {
+      this.isActive = false;
+      console.log("request_stepOut_with_cpi");
+      let resPtr = await this.LLDB.ccall(
+        "execute_command",
+        "number",
+        ["string"],
+        ["finish"]
+      );
+      this.LLDB._free(resPtr);
+      await this.updateEditor();
+      this.isActive = true;
     },
     async next() {
       this.isActive = false;
@@ -551,13 +588,24 @@ export default {
       );
 
       console.log("PATH:", responseJSON.body.stackFrames[0].source.path);
-      let file = {};
       let path = responseJSON.body.stackFrames[0].source.path;
       if (path) {
-        file["name"] = this.sanitizeFileName(path);
-        file["line"] = responseJSON.body.stackFrames[0].line;
-        this.load_file(file["name"]);
-        this.file = file;
+        let file = this.sanitizeFileName(path);
+        this.load_file(file);
+        this.editorState["file"] = file;
+        this.editorState["line"] = responseJSON.body.stackFrames[0].line;
+        this.lineMark["file"] = file;
+        this.lineMark["line"] = responseJSON.body.stackFrames[0].line;
+        let breakpointsEditor;
+        if (this.breakpoints[this.editorState.file] === undefined) {
+          breakpointsEditor = [];
+        } else {
+          breakpointsEditor = JSON.parse(
+            JSON.stringify(this.breakpoints[this.editorState.file])
+          );
+        }
+        this.editorState["breakpoints"] = breakpointsEditor;
+        this.editorState = JSON.parse(JSON.stringify(this.editorState));
       } else {
         console.log("DISASSEMBLY");
       }
@@ -607,7 +655,6 @@ export default {
         ["disassemble -p -b -c 7"]
       );
       let res = this.LLDB.UTF8ToString(resPtr);
-      console.log("dis", res.split("\n"));
       res = res.split("\n").slice(1);
       res[0] = res[0].slice(3); // Remove leading arrow
       let data = [];
@@ -651,7 +698,9 @@ export default {
           "/home/wj/.cargo/registry/src/github.com-1ecc6299db9ec823/solana-program-1.10.33/" +
           path.split("solana-program-1.10.33/")[1];
       } else if (path.includes("rust-solana-1.59.0")) {
-        path = "/home/wj/projects/rust-own/rust/" + path.split("rust-solana-1.59.0/")[1];
+        path =
+          "/home/wj/projects/rust-own/rust/" +
+          path.split("rust-solana-1.59.0/")[1];
       } else {
         path = this.program_real_path + path.split("/program/")[1];
       }
@@ -664,7 +713,7 @@ export default {
       }
       console.log("toggleBreakpoints0", this.breakpoints[file]);
       if (file === "") {
-        file = this.file.name;
+        file = this.editorState.file;
       }
       let preBreakpoints;
       console.log("toggleBreakpoints", file, line);
@@ -700,15 +749,16 @@ export default {
         .filter((b) => b.verified === true)
         .map((b) => b.line);
 
-      if (file === this.file.name) {
-        this.breakpointsEditor = this.breakpoints[this.file.name];
-        console.log("breakpointsEditor", this.breakpointsEditor);
+      if (file === this.editorState.file) {
+        this.editorState.breakpoints = this.breakpoints[this.editorState.file];
+        this.editorState = JSON.parse(JSON.stringify(this.editorState));
+        console.log("editorState.breakpoints", this.editorState.breakpoints);
       }
-      console.log("breakpoints", this.breakpoints[this.file.name]);
+      console.log("breakpoints", this.breakpoints[this.editorState.file]);
     },
 
     load_file(name) {
-      if (name == this.file.name) {
+      if (name == this.editorState.file) {
         return;
       }
       if (this.prev_node) {
@@ -736,7 +786,6 @@ export default {
       node.open = true;
       this.prev_node = node;
       this.focus = !this.focus;
-      this.breakpointsEditor = this.breakpoints[this.file.name];
     },
 
     // Tree
@@ -745,11 +794,17 @@ export default {
         this.prev_node.open = false;
       }
       console.log("APP changeFile", node.path);
-      this.file = { name: node.path };
+      this.editorState["file"] = node.path;
       node.open = true;
       this.prev_node = node;
       console.log("changeFile breakpoints", this.breakpoints);
-      this.breakpointsEditor = this.breakpoints[node.path];
+      this.editorState["breakpoints"] = this.breakpoints[node.path];
+      if (node.path === this.lineMark.file) {
+        this.editorState["line"] = this.lineMark.line;
+      } else {
+        this.editorState["line"] = undefined;
+      }
+      this.editorState = JSON.parse(JSON.stringify(this.editorState));
     },
     toggleFolder(node) {
       console.log("APP toggleFolder", node);
@@ -795,6 +850,18 @@ export default {
   height: 30px;
   top: 0;
   text-align: center;
+}
+
+.status-finished {
+  color: red;
+}
+
+.status-in-cpi {
+  color: orange;
+}
+
+.status-running {
+  color: #14f195;
 }
 
 .program-name {
@@ -930,6 +997,10 @@ export default {
 
 .vue-grid-item .add {
   cursor: pointer;
+}
+
+.dragging {
+  user-select: none;
 }
 
 .remove {

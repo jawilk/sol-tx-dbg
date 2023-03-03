@@ -24,7 +24,8 @@
       >&#8595;</span
     >
     <span
-      class="deactivated"
+      class="button-purple"
+      @click="stepOut"
       title="step out"
       :class="{ deactivated: !isActive }"
       >&#8593;</span
@@ -50,6 +51,10 @@ export default {
     stepIn() {
       if (!this.isActive) return;
       this.$emit("stepIn");
+    },
+    stepOut() {
+      if (!this.isActive) return;
+      this.$emit("stepOut");
     },
     continue_() {
       if (!this.isActive) return;
@@ -94,7 +99,7 @@ export default {
 }
 
 .debugDragHandle {
-  color: #03E1FF;
+  color: #9945ff;
   text-align: center;
   background-color: transparent;
 }
