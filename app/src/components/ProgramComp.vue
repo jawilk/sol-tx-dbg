@@ -212,7 +212,7 @@ export default {
     return {
       files_url: "http://localhost:8000/static/",
       websocket_url: "ws://localhost:9007/?token=",
-      cpi_url: "http://localhost:8084/program/",
+      cpi_url: "http://localhost:8083/program/",
       LLDB: null,
       layout: startLayout,
       index: 0,

@@ -70,7 +70,7 @@ export default {
       const response = await fetch(this.init_url + tx_hash);
       const responseJson = await response.json();
       this.uuid = responseJson.uuid;
-      this.instData = responseJson.program_metas;
+      this.instData = responseJson.tx_program_metas;
       console.log(this.instData, this.uuid);
     },
     startDebugger(index) {

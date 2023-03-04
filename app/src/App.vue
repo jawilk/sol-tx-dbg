@@ -11,22 +11,51 @@
       />
       <button style="cursor: pointer">go</button>
     </form>
+    <span class="own-wrap">
+      <button
+        class="own-item"
+        @click="toggleLocalExecution"
+        title="start local execution"
+      >
+        local
+      </button>
+    </span>
+    <span class="github-wrap">
+      <button
+        class="github-button"
+        onclick="window.open('https://github.com/jawilk/sol-tx-dbg', '_blank')"
+        title="github"
+      >
+        <i class="fa">&#xf09b;</i>
+      </button>
+    </span>
   </div>
+  <localComp v-if="showLocal" :showLocal="showLocal"
+  @close="toggleLocalExecution" />
   <router-view />
 </template>
 
-    <script>
+<script>
+import LocalComp from "./components/LocalComp.vue";
+
 export default {
   name: "App",
+  components: {
+    LocalComp,
+  },
   data() {
     return {
       txHash: "",
+      showLocal: false,
     };
   },
   methods: {
     loadTx() {
       // console.log("load tx", this.txHash);
-        this.$router.push({ name: "choose", query: { txHash: this.txHash } });
+      this.$router.push({ name: "choose", query: { txHash: this.txHash } });
+    },
+    toggleLocalExecution() {
+      this.showLocal = !this.showLocal;
     },
   },
 };
@@ -81,5 +110,55 @@ body {
   margin-left: auto;
   margin-right: auto;
   text-align: left;
+}
+
+.own-wrap {
+  position: absolute;
+  background: #e0e4e6;
+  padding: 1px;
+  border-radius: 6px;
+  border-width: 1em;
+  right: 10%;
+  width: 70px;
+  height: 25px;
+}
+
+.own-item {
+  color: #e0e4e6;
+  background-color: #201c1c;
+  border-radius: 6px;
+  border-color: #30363d;
+  border-style: solid;
+  border-width: 1px;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  text-align: center;
+  font-size: 15px;
+}
+
+.github-wrap {
+  position: absolute;
+  background: transparent;
+  padding: 1px;
+  border-radius: 6px;
+  border-width: 1em;
+  right: 0%;
+  width: 50px;
+  height: 30px;
+}
+
+.github-button {
+  position: absolute;
+  background: transparent;
+  border: none;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
+  color: #e0e4e6;
+  font-size: 23px;
+  cursor: pointer;
 }
 </style>
