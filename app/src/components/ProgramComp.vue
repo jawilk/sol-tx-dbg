@@ -73,7 +73,6 @@
 
 <script>
 import * as bs58 from "bs58";
-import AddBtn from "./AddBtn.vue";
 import EditorComponent from "./Editor.vue";
 import DebugPanel from "./DebugPanel.vue";
 import TreeNode from "./TreeNode.vue";
@@ -196,7 +195,6 @@ const startLayout = [
 export default {
   name: "App",
   components: {
-    AddBtn,
     EditorComponent,
     DebugPanel,
     TreeNode,
@@ -246,6 +244,7 @@ export default {
   },
   unmounted() {
     window.removeEventListener("beforeunload", this.handleWindowClose);
+    this.cleanup();
   },
   async mounted() {
     console.log("program query", this.$route.query);
@@ -329,6 +328,8 @@ export default {
       }
     },
     cleanup() {
+      // this.LLDB['noExitRuntime'] = 0;
+      this.LLDB._exit(0);
       this.LLDB.exports = null;
       this.LLDB = null;
     },
@@ -495,11 +496,9 @@ export default {
       if (isFinished === -1) {
         this.status = "Finished";
         console.log("execution finished");
-        this.cleanup();
         alert("execution finished");
         if (this.status !== "In CPI") {
           this.isRestart = true;
-          console.log("restart");
         }
         return;
       }
