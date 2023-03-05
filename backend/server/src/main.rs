@@ -36,7 +36,10 @@ use anyhow::anyhow;
 
 use uuid::Uuid;
 
-const SUPPORTED_PROGRAMS: [&str; 2] = ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"];
+const SUPPORTED_PROGRAMS: [&str; 2] = [
+    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+];
 lazy_static! {
     static ref SUPPORTED_PROGRAMS_INFO: Mutex<HashMap<&'static str, String>> = {
         let mut m = HashMap::new();
@@ -223,12 +226,18 @@ fn tx_info(tx_hash: TxHash) -> Result<Value, Status> {
 
 #[launch]
 fn rocket() -> _ {
+    let config = rocket::config::Config {
+        address: "0.0.0.0".parse().unwrap(),
+        port: 8000,
+        ..Default::default()
+    };
     rocket::build()
         .mount("/", FileServer::from("dist").rank(1))
         .mount("/static", FileServer::from("static").rank(2))
         .mount("/", routes![tx_info])
         .mount("/program", FileServer::from("dist").rank(2))
         .mount("/program/not-supported", FileServer::from("dist").rank(3))
+        .configure(config)
         .attach(Cors)
 }
 
