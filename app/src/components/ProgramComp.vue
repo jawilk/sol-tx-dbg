@@ -238,6 +238,7 @@ export default {
       program_name: "",
       program_real_path: "/home/wj/temp/test-solana/program/",
       isDragging: false,
+      programs_supported: [],
     };
   },
   beforeCreate() {
@@ -280,7 +281,7 @@ export default {
     }
     await this.getTree();
     await this.loadElf();
-    // CPI
+    // CPI hook
     let res = await this.LLDB.ccall(
       "execute_command",
       "number",
@@ -290,6 +291,15 @@ export default {
     await this.LLDB._free(res);
     // connect to vm
     await this.connect();
+    fetch(this.files_url + "programs_supported.txt")
+      .then((response) => response.text())
+      .then((text) => {
+        // split the text by line breaks and store each line in an array
+        const lines = text.split("\n");
+        this.programs_supported = lines;
+      })
+      .catch((error) => console.error(error));
+    console.log("programs_supported", this.programs_supported);
     this.isDebuggerConnected = true;
     this.isActive = true;
     console.log("mounted");
@@ -463,7 +473,7 @@ export default {
       );
       console.log("request_cpi_program_id: ", pubkey);
       let url;
-      if (pubkey === "11111111111111111111111111111111") {
+      if (!this.programs_supported.includes(pubkey)) {
         url = this.cpi_url + "not-supported?program_id=" + pubkey;
       } else {
         url = this.cpi_url + "?uuid=" + this.uuid + "&program_id=" + pubkey;
