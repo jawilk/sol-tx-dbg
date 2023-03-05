@@ -28,12 +28,12 @@ use {
         sysvar_cache::get_sysvar_with_account_check,
     },
     solana_rbpf::{
-        debugger,
-        interpreter::Interpreter,
         aligned_memory::AlignedMemory,
+        debugger,
         ebpf::{HOST_ALIGN, MM_INPUT_START},
         elf::Executable,
         error::{EbpfError, UserDefinedError},
+        interpreter::Interpreter,
         memory_region::MemoryRegion,
         static_analysis::Analysis,
         verifier::{RequisiteVerifier, VerifierError},
@@ -75,8 +75,8 @@ use std::sync::atomic::{AtomicU16, Ordering};
 static PORT: AtomicU16 = AtomicU16::new(0);
 
 pub fn set_port(port: u16) {
-  PORT.store(port, Ordering::SeqCst);
- }
+    PORT.store(port, Ordering::SeqCst);
+}
 
 /// Errors returned by functions the BPF Loader registers with the VM
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -1354,7 +1354,7 @@ impl Executor for BpfExecutor {
                 // Give random port to CPIs
                 PORT.store(0, Ordering::SeqCst);
                 debugger::execute(&mut interpreter, "127.0.0.1", port)
-    };
+            };
             /*let result = if self.use_jit {
                 vm.execute_program_jit(&mut instruction_meter)
             } else {

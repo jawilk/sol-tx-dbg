@@ -13,7 +13,7 @@ use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_progr
 use solana_transaction_status::UiRawMessage;
 use solana_transaction_status::UiTransaction;
 
-const SUPPORTED_PROGRAMS: [&'static str; 1] =
+const SUPPORTED_PROGRAMS: [&str; 1] =
     ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL, TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"];
 
 pub fn main() {
@@ -53,7 +53,7 @@ fn load_tx(tx_hash: &str) -> UiTransaction {
         let mut buf = vec![];
         if file.read_to_end(&mut buf).is_ok() {
             match serde_json::from_slice::<UiTransaction>(&buf[..]) {
-                Ok(tx) => return tx,
+                Ok(tx) => tx,
                 _ => panic!("Error deserializing tx"),
             }
         } else {
@@ -116,17 +116,28 @@ fn get_inst(
     }
 }
 
+fn get_avoid_accounts(inst: &Instruction) -> Vec<String> {
+    let mut avoid = vec![];
+    if inst.program_id == spl_associated_token_account::ID {
+        // Don't clone to-be created account if its a create instruction (since we are replaying, it already has data in it on mainnet)
+        if inst.data.is_empty() {
+            avoid.push(inst.accounts[1].pubkey.to_string());
+        }
+    }
+    avoid
+}
+
 fn sanitize_accounts(
-    accounts: &Vec<AccountMeta>,
-    programs_supported: &Vec<String>,
-    programs_not_supported: &Vec<String>,
-    accounts_avoid: &Vec<String>,
+    inst: &Instruction,
+    programs_supported: &[String],
+    programs_not_supported: &[String],
 ) -> Vec<Pubkey> {
     let mut accounts_sanitized = vec![];
-    for acc in accounts.iter() {
+    let accounts_avoid_loading = get_avoid_accounts(inst);
+    for acc in inst.accounts.iter() {
         if !programs_supported.contains(&acc.pubkey.to_string())
             && !programs_not_supported.contains(&acc.pubkey.to_string())
-            && !accounts_avoid.contains(&acc.pubkey.to_string())
+            && !accounts_avoid_loading.contains(&acc.pubkey.to_string())
         {
             accounts_sanitized.push(acc.pubkey);
         }
@@ -136,6 +147,7 @@ fn sanitize_accounts(
 
 fn setup(tx_hash: &str, inst_nr: usize, port: u16) {
     println!("PORT framework: {}", port);
+    // In solana-bpf-loader-progam
     set_port(port);
 
     let rpc_client = RpcClient::new("https://api.mainnet-beta.solana.com".to_string());
@@ -143,22 +155,14 @@ fn setup(tx_hash: &str, inst_nr: usize, port: u16) {
     let (inst, programs_supported, programs_not_supported, payer) =
         get_inst(tx_hash, inst_nr).unwrap();
 
-    let mut accounts_avoid = vec![];
-    accounts_avoid.push("7NrmtYT7DsviTAzfpfgxPzywabGALCtz5mrxei3zCa5v".to_owned());
-
     let mut env = LocalEnvironment::builder()
         .clone_accounts_from_cluster(
-            &sanitize_accounts(
-                &inst.accounts,
-                &programs_supported,
-                &programs_not_supported,
-                &accounts_avoid,
-            ),
+            &sanitize_accounts(&inst, &programs_supported, &programs_not_supported),
             &rpc_client,
         )
         .add_programs_supported(&programs_supported)
         .add_programs_not_supported(&programs_not_supported, &rpc_client)
-        // // Add the original payer
+        // Add the original payer
         .add_account_with_lamports(payer, system_program::ID, sol_to_lamports(1.0))
         .build();
 

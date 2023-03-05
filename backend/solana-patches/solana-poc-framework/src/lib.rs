@@ -62,12 +62,6 @@ pub use solana_client;
 pub use solana_program;
 pub use solana_sdk;
 pub use solana_transaction_status;
-pub use spl_associated_token_account;
-pub use spl_memo;
-pub use spl_token;
-
-mod keys;
-mod programs;
 
 /// A generic Environment trait. Provides the possibility of writing generic exploits that work both remote and local, for easy debugging.
 pub trait Environment {
@@ -591,8 +585,8 @@ impl Environment for LocalEnvironment {
 
         let batch = self.bank.prepare_entry_batch(txs.clone()).unwrap();
         let tx_sanitized = batch.sanitized_transactions()[0].clone();
-        let slot = self.bank.slot();
-        /*let mut mint_decimals = HashMap::new();
+        /*let slot = self.bank.slot();
+        let mut mint_decimals = HashMap::new();
         let tx_pre_token_balances = solana_ledger::token_balances::collect_token_balances(
             &self.bank,
             &batch,
@@ -774,18 +768,25 @@ impl LocalEnvironmentBuilder {
         self.config.add_account(pubkey, account.into());
         self
     }
-    
-    pub fn add_programs_not_supported(&mut self, programs: &Vec<String>, rpc_client: &RpcClient) -> &mut Self {
+
+    pub fn add_programs_not_supported(
+        &mut self,
+        programs: &Vec<String>,
+        rpc_client: &RpcClient,
+    ) -> &mut Self {
         for program in programs {
             //self.clone_upgradable_program_from_cluster(rpc_client, Pubkey::from_str(program).unwrap());
             self.clone_account_from_cluster(Pubkey::from_str(program).unwrap(), rpc_client);
         }
         self
     }
-    
+
     pub fn add_programs_supported(&mut self, programs: &Vec<String>) -> &mut Self {
         for program in programs {
-            self.add_program(Pubkey::from_str(program).unwrap(), format!("elfs/{program}.so"));
+            self.add_program(
+                Pubkey::from_str(program).unwrap(),
+                format!("elfs/{program}.so"),
+            );
         }
         self
     }
@@ -1054,7 +1055,7 @@ impl Environment for RemoteEnvironment {
         clone_keypair(&self.payer)
     }
 
-    fn simulate_transaction<T>(&mut self, txs: T)
+    fn simulate_transaction<T>(&mut self, _txs: T)
     where
         VersionedTransaction: From<T>,
     {
@@ -1195,9 +1196,9 @@ pub fn random_keypair() -> Keypair {
 
 /// Return a recognisable Keypair. The public key will start with `Kxxx`, where xxx are the three digits of the number.
 /// `o` is used instead of `0`, as `0` is not part of the base58 charset.
-pub fn keypair(n: u8) -> Keypair {
-    Keypair::from_bytes(&keys::KEYPAIRS[n as usize]).unwrap()
-}
+//pub fn keypair(n: u8) -> Keypair {
+//  Keypair::from_bytes(&keys::KEYPAIRS[n as usize]).unwrap()
+//}
 
 /// Constructs a devnet client using `CommitmentConfig::confirmed()`.
 pub fn devnet_client() -> RpcClient {

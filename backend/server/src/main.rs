@@ -36,7 +36,7 @@ use anyhow::anyhow;
 
 use uuid::Uuid;
 
-const SUPPORTED_PROGRAMS: [&'static str; 1] = ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"];
+const SUPPORTED_PROGRAMS: [&str; 1] = ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"];
 lazy_static! {
     static ref SUPPORTED_PROGRAMS_INFO: Mutex<HashMap<&'static str, String>> = {
         let mut m = HashMap::new();
@@ -54,10 +54,8 @@ impl<'a> FromParam<'a> for TxHash {
     type Error = &'static str;
 
     fn from_param(param: &'a str) -> Result<Self, Self::Error> {
-        match Signature::from_str(&param) {
-            Ok(_) => Ok(Self {
-                0: param.to_string(),
-            }),
+        match Signature::from_str(param) {
+            Ok(_) => Ok(Self(param.to_string())),
             Err(_) => Err("invalid TxHash"),
         }
     }
@@ -110,7 +108,7 @@ fn load_tx(tx_hash_str: &str) -> anyhow::Result<Vec<Vec<String>>> {
                     tx_programs.push(inst_programs);
                 }
             }
-            return Ok(tx_programs);
+            Ok(tx_programs)
         }
         // New tx, fetch from rpc
         Err(_) => {
@@ -121,7 +119,7 @@ fn load_tx(tx_hash_str: &str) -> anyhow::Result<Vec<Vec<String>>> {
                 commitment: Some(CommitmentConfig::confirmed()),
                 max_supported_transaction_version: Some(0),
             };
-            let tx_hash = Signature::from_str(&tx_hash_str).unwrap();
+            let tx_hash = Signature::from_str(tx_hash_str).unwrap();
             let now = Instant::now();
             let tx = loop {
                 match rpc_client.get_transaction_with_config(&tx_hash, config) {
@@ -150,15 +148,13 @@ fn load_tx(tx_hash_str: &str) -> anyhow::Result<Vec<Vec<String>>> {
                                     let account = &message.account_keys[*account_index as usize];
                                     let account_info =
                                         rpc_client.get_account(&Pubkey::from_str(account).unwrap());
-                                    match account_info {
-                                        Ok(account_info) => {
-                                            if account_info.executable {
-                                                if !inst_programs.contains(&account.to_string()) {
-                                                    inst_programs.push(account.to_string());
-                                                }
-                                            }
+
+                                    if let Ok(account_info) = account_info {
+                                        if account_info.executable
+                                            && !inst_programs.contains(&account.to_string())
+                                        {
+                                            inst_programs.push(account.to_string());
                                         }
-                                        _ => (),
                                     };
                                 }
                                 let program_id =
@@ -175,7 +171,7 @@ fn load_tx(tx_hash_str: &str) -> anyhow::Result<Vec<Vec<String>>> {
                                 }
                                 tx_programs.push(inst_programs);
                             }
-                            return Ok(tx_programs);
+                            Ok(tx_programs)
                         }
                         _ => return Err(anyhow!("Parsing message failed.")),
                     }

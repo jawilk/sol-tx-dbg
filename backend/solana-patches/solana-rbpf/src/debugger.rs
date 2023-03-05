@@ -79,7 +79,7 @@ pub fn execute<V: Verifier, E: UserDefinedError, I: InstructionMeter>(
     let connection: Box<dyn ConnectionExt<Error = std::io::Error>> = match wait_for_tcp(host, port)
     {
         Ok(stream) => Box::new(stream),
-        Err(e) => {
+        Err(_) => {
             let result = loop {
                 match interpreter.step() {
                     Ok(None) => (),
@@ -114,7 +114,7 @@ pub fn execute<V: Verifier, E: UserDefinedError, I: InstructionMeter>(
             state_machine::GdbStubStateMachine::Idle(mut dbg_inner) => {
                 let byte = match dbg_inner.borrow_conn().read() {
                     Ok(byte) => byte,
-                    Err(e) => {
+                    Err(_) => {
                         eprintln!("Connection error, running till end");
                         loop {
                             match interpreter.step() {
