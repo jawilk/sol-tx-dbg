@@ -72,6 +72,9 @@ solana_sdk::declare_builtin!(
 
 use std::sync::atomic::{AtomicU16, Ordering};
 
+// TODO: unify this in one place
+const SUPPORTED_PROGRAMS: [&str; 2] =
+    ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"];
 static PORT: AtomicU16 = AtomicU16::new(0);
 
 pub fn set_port(port: u16) {
@@ -1347,13 +1350,17 @@ impl Executor for BpfExecutor {
             stable_log::program_invoke(&log_collector, &program_id, stack_height);
             let mut instruction_meter = ThisInstructionMeter::new(compute_meter.clone());
             let before = compute_meter.borrow().get_remaining();
-            let result = {
+            println!("program_id: {:?}", program_id);
+            let result = if SUPPORTED_PROGRAMS.iter().any(|&p| p == program_id.to_string()) {
                 let mut interpreter = Interpreter::new(&mut vm, &mut instruction_meter).unwrap();
                 //PORT.fetch_add(1, Ordering::SeqCst);
                 let port = PORT.load(Ordering::SeqCst);
                 // Give random port to CPIs
                 PORT.store(0, Ordering::SeqCst);
                 debugger::execute(&mut interpreter, "127.0.0.1", port)
+            } else {
+                println!("NOT SUPPORTED");
+                vm.execute_program_interpreted(&mut instruction_meter)
             };
             /*let result = if self.use_jit {
                 vm.execute_program_jit(&mut instruction_meter)

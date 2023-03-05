@@ -7,15 +7,17 @@ edition = "2021"
 
 [dependencies]
 poc-framework = { path = "../solana-submodules/solana-poc-framework" }
-solana-program = "=1.14.13"
+solana-program = { path = "../solana-patches/solana-program" }
 solana-transaction-status = "=1.14.13"
 solana-client = "=1.14.13"
 solana-sdk = "=1.14.13"
-spl-token-2022 = "0.6.0"
+spl-associated-token-account = "1.1.2"
 solana-bpf-loader-program = { path = "../solana-patches/solana-bpf-loader-program" }
+serde_json = "1.0.93"
+anyhow = "1.0.69"
 
 [patch.crates-io]
 solana-bpf-loader-program = { path = "../solana-patches/solana-bpf-loader-program" }
 solana-runtime = { path = "../solana-patches/solana-runtime" }
-solana-sdk = { path = "../solana-patches/solana-sdk" }
+solana-program = { path = "../solana-patches/solana-program" }
 solana_rbpf = { path = "../solana-submodules/solana-rbpf"}

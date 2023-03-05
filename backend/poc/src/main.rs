@@ -13,8 +13,8 @@ use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_progr
 use solana_transaction_status::UiRawMessage;
 use solana_transaction_status::UiTransaction;
 
-const SUPPORTED_PROGRAMS: [&str; 1] =
-    ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL, TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"];
+const SUPPORTED_PROGRAMS: [&str; 2] =
+    ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"];
 
 pub fn main() {
     let args: Vec<_> = env::args().collect();
@@ -104,7 +104,6 @@ fn get_inst(
                     }
                 }
             }
-
             Ok((
                 create_single_inst(&message, inst_nr, writable_accs, signer_accs),
                 programs_supported,

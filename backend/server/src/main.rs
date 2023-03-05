@@ -36,7 +36,7 @@ use anyhow::anyhow;
 
 use uuid::Uuid;
 
-const SUPPORTED_PROGRAMS: [&str; 1] = ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"];
+const SUPPORTED_PROGRAMS: [&str; 1] = ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"];
 lazy_static! {
     static ref SUPPORTED_PROGRAMS_INFO: Mutex<HashMap<&'static str, String>> = {
         let mut m = HashMap::new();
