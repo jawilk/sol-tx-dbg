@@ -2,3 +2,7 @@
 	path = backend/solana-submodules/solana-rbpf
 	url = https://github.com/jawilk/rbpf
 	branch = sol-tx-dbg
+[submodule "backend/solana-submodules/solana-poc-framework"]
+	path = backend/solana-submodules/solana-poc-framework
+	url = https://github.com/jawilk/solana-poc-framework
+	branch = sol-tx-dbg
