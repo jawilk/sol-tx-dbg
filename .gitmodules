@@ -1,0 +1,4 @@
+[submodule "backend/solana-submodules/solana-rbpf"]
+	path = backend/solana-submodules/solana-rbpf
+	url = https://github.com/jawilk/rbpf
+	branch = sol-tx-dbg
