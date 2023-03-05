@@ -40,7 +40,7 @@ export default {
   name: "ProgramChoiceComp",
   data() {
     return {
-      init_url: "http://localhost:8000/init/",
+      init_url: "http://localhost:8000/tx-info/",
       uuid: "",
       instData: [],
       tx_hash: "",

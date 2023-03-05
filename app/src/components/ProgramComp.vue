@@ -210,7 +210,7 @@ export default {
     return {
       files_url: "http://localhost:8000/static/",
       websocket_url: "ws://localhost:9007/?token=",
-      cpi_url: "http://localhost:8083/program/",
+      cpi_url: "http://localhost:8000/program",
       LLDB: null,
       layout: startLayout,
       index: 0,
@@ -475,7 +475,7 @@ export default {
       console.log("request_cpi_program_id: ", pubkey);
       let url;
       if (!this.programs_supported.includes(pubkey)) {
-        url = this.cpi_url + "not-supported?program_id=" + pubkey;
+        url = this.cpi_url + "/not-supported?program_id=" + pubkey;
       } else {
         url = this.cpi_url + "?uuid=" + this.uuid + "&program_id=" + pubkey;
       }

@@ -96,7 +96,7 @@ fn load_tx(tx_hash_str: &str) -> anyhow::Result<Vec<Vec<String>>> {
             inst_files.sort_by_key(|dir_entry| dir_entry.file_name());
             let mut tx_programs = vec![];
             for inst in inst_files {
-                println!("INst nr: {:?}", inst);
+                println!("Inst nr: {:?}", inst);
                 if inst.file_type()?.is_file() {
                     let file_path = inst.path();
                     let file = fs::File::open(file_path)?;
@@ -212,8 +212,8 @@ fn get_tx_info(tx_hash_str: &str) -> anyhow::Result<InitResponse> {
     })
 }
 
-#[get("/init/<tx_hash>")]
-fn init(tx_hash: TxHash) -> Result<Value, Status> {
+#[get("/tx-info/<tx_hash>")]
+fn tx_info(tx_hash: TxHash) -> Result<Value, Status> {
     println!("hash here: {} {}", tx_hash.0, tx_hash.0.len());
     match get_tx_info(&tx_hash.0) {
         Ok(tx) => Ok(json!(tx)),
@@ -224,8 +224,11 @@ fn init(tx_hash: TxHash) -> Result<Value, Status> {
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .mount("/", routes![init])
-        .mount("/static", FileServer::from("static/"))
+        .mount("/", FileServer::from("dist").rank(1))
+        .mount("/static", FileServer::from("static").rank(2))
+        .mount("/", routes![tx_info])
+        .mount("/program", FileServer::from("dist").rank(2))
+        .mount("/program/not-supported", FileServer::from("dist").rank(3))
         .attach(Cors)
 }
 
