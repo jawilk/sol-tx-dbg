@@ -47,6 +47,10 @@ lazy_static! {
             SUPPORTED_PROGRAMS[0],
             String::from("Associated Token Program"),
         );
+        m.insert(
+            SUPPORTED_PROGRAMS[1],
+            String::from("Token Program"),
+        );
         Mutex::new(m)
     };
 }
@@ -99,6 +103,7 @@ fn load_tx(tx_hash_str: &str) -> anyhow::Result<Vec<Vec<String>>> {
             inst_files.sort_by_key(|dir_entry| dir_entry.file_name());
             let mut tx_programs = vec![];
             for inst in inst_files {
+                println!("Inst nr: {:?}", inst);
                 if inst.file_type()?.is_file() {
                     let file_path = inst.path();
                     let file = fs::File::open(file_path)?;
@@ -141,6 +146,7 @@ fn load_tx(tx_hash_str: &str) -> anyhow::Result<Vec<Vec<String>>> {
                     file.write_all(&data).unwrap();
                     match tx.message {
                         solana_transaction_status::UiMessage::Raw(message) => {
+                            println!("msg: {:?}", message);
                             // Save all programs used in an instruction separately
                             let mut tx_programs = vec![];
                             for (inst_nr, inst) in message.instructions.iter().enumerate() {
@@ -215,6 +221,7 @@ fn get_tx_info(tx_hash_str: &str) -> anyhow::Result<InitResponse> {
 
 #[get("/tx-info/<tx_hash>")]
 fn tx_info(tx_hash: TxHash) -> Result<Value, Status> {
+    println!("hash here: {} {}", tx_hash.0, tx_hash.0.len());
     match get_tx_info(&tx_hash.0) {
         Ok(tx) => Ok(json!(tx)),
         Err(_) => Err(Status::InternalServerError),
@@ -223,6 +230,11 @@ fn tx_info(tx_hash: TxHash) -> Result<Value, Status> {
 
 #[launch]
 fn rocket() -> _ {
+    let config = rocket::config::Config {
+        address: "0.0.0.0".parse().unwrap(),
+        port: 8000,
+        ..Default::default()
+    };
     rocket::build()
         .mount("/", FileServer::from("dist").rank(1))
         .mount("/static", FileServer::from("static").rank(2))
@@ -230,6 +242,7 @@ fn rocket() -> _ {
         .mount("/choose", FileServer::from("dist").rank(2))
         .mount("/program", FileServer::from("dist").rank(2))
         .mount("/program/not-supported", FileServer::from("dist").rank(3))
+        .configure(config)
         .attach(Cors)
 }
 
