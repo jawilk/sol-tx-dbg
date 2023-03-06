@@ -247,6 +247,7 @@ export default {
     this.cleanup();
   },
   async mounted() {
+    this.status = "Starting...";
     console.log("program query", this.$route.query);
     // vue-grid-layout
     this.index = this.layout.length;
@@ -267,7 +268,6 @@ export default {
       this.LLDB["websocket"]["url"] = this.websocket_url + this.uuid;
     } else {
       console.log("NO CPI");
-      this.status = "Starting...";
       this.tx_hash = this.$route.query.tx_hash;
       this.inst_nr = this.$route.query.inst_nr;
       this.LLDB["websocket"]["url"] =

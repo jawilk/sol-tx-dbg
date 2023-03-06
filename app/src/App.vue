@@ -11,9 +11,9 @@
       />
       <button style="cursor: pointer">go</button>
     </form>
-    <span class="own-wrap">
+    <span class="local-wrap">
       <button
-        class="own-item"
+        class="local-item"
         @click="toggleLocalExecution"
         title="start local execution"
       >
@@ -21,13 +21,11 @@
       </button>
     </span>
     <span class="github-wrap">
-      <button
-        class="github-button"
-        onclick="window.open('https://github.com/jawilk/sol-tx-dbg', '_blank')"
-        title="github"
-      >
-        <i class="fa">&#xf09b;</i>
-      </button>
+      <a href="https://github.com">
+        <span class="icon">
+          <i class="fab fa-github github-button"></i>
+        </span>
+      </a>
     </span>
   </div>
   <localComp v-if="showLocal" :showLocal="showLocal"
@@ -89,6 +87,18 @@ body {
   background-color: #555;
 }
 
+.intro {
+  position: absolute;
+  top: 50px;
+  padding: 5px;
+  text-align: center;
+  width: 100%;
+  border: none;
+  background-color: transparent;
+  color: white;
+  font-size: 13px;
+}
+
 .tx-hash-wrap {
   top: 0;
   left: 0;
@@ -112,7 +122,7 @@ body {
   text-align: left;
 }
 
-.own-wrap {
+.local-wrap {
   position: absolute;
   background: #e0e4e6;
   padding: 1px;
@@ -123,7 +133,7 @@ body {
   height: 25px;
 }
 
-.own-item {
+.local-item {
   color: #e0e4e6;
   background-color: #201c1c;
   border-radius: 6px;
@@ -158,7 +168,7 @@ body {
   height: 100%;
   transform: translate(-50%, -50%);
   color: #e0e4e6;
-  font-size: 23px;
+  font-size: 20px;
   cursor: pointer;
 }
 </style>

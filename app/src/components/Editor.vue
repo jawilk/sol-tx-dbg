@@ -266,7 +266,6 @@ export default {
     // Codemirror EditorView instance ref
     const view = shallowRef();
     const handleReady = (payload) => {
-      console.log("pay", payload);
       view.value = payload.view;
       // payload.on("gutterClick", handleGutterClick);
     };

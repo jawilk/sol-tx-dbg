@@ -12,7 +12,7 @@
               <input id="input2" type="text" v-model="input2" placeholder="localhost:9001/static/"/>
             </div>
             <div class="form-buttons">
-                <button type="submit" style="float:left">start</button>
+                <button type="submit" style="float:left" class="deactivated">coming soon</button>
                 <button @click="closePopup" style="float:right">close</button>
             </div>
           </form>

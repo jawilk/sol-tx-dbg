@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import App from './App.vue';
+import StartComp from './components/StartComp.vue';
 import ProgramChoiceComp from './components/ProgramChoiceComp.vue';
 import ProgramComp from './components/ProgramComp.vue';
 import NotSupportedComp from './components/NotSupportedComp.vue';
@@ -9,7 +9,7 @@ const routes = [
     {
       path: '/',
       name: 'Init',
-      component: App
+      component: StartComp
     },
     {
         path: '/choose',
