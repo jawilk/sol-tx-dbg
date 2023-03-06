@@ -69,7 +69,6 @@ impl BgThreads {
                     let storage_ = Arc::clone(storage);
                     let exit_ = Arc::clone(&exit);
                     let in_mem_ = in_mem.to_vec();
-
                     // note that using rayon here causes us to exhaust # rayon threads and many tests running in parallel deadlock
                     Builder::new()
                         .name(format!("solIdxFlusher{:02}", idx))
@@ -143,7 +142,8 @@ impl<T: IndexValue> AccountsIndexStorage<T> {
     }
 
     fn num_threads() -> usize {
-        std::cmp::max(2, num_cpus::get() / 4)
+        //std::cmp::max(2, num_cpus::get() / 4)
+        0
     }
 
     /// allocate BucketMapHolder and InMemAccountsIndex[]

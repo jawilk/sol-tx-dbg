@@ -78,7 +78,7 @@ const SUPPORTED_PROGRAMS: [&str; 2] =
 static PORT: AtomicU16 = AtomicU16::new(0);
 
 pub fn set_port(port: u16) {
-    PORT.store(port, Ordering::SeqCst);
+    PORT.store(port, Ordering::Relaxed);
 }
 
 /// Errors returned by functions the BPF Loader registers with the VM
@@ -1353,10 +1353,10 @@ impl Executor for BpfExecutor {
             println!("program_id: {:?}", program_id);
             let result = if SUPPORTED_PROGRAMS.iter().any(|&p| p == program_id.to_string()) {
                 let mut interpreter = Interpreter::new(&mut vm, &mut instruction_meter).unwrap();
-                //PORT.fetch_add(1, Ordering::SeqCst);
-                let port = PORT.load(Ordering::SeqCst);
+                //PORT.fetch_add(1, Ordering::Relaxed);
+                let port = PORT.load(Ordering::Relaxed);
                 // Give random port to CPIs
-                PORT.store(0, Ordering::SeqCst);
+                PORT.store(0, Ordering::Relaxed);
                 debugger::execute(&mut interpreter, "127.0.0.1", port)
             } else {
                 println!("NOT SUPPORTED");

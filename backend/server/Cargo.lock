@@ -1560,20 +1560,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hello-rocket"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "lazy_static",
- "rocket",
- "serde_json",
- "solana-client",
- "solana-sdk",
- "solana-transaction-status",
- "uuid",
-]
-
-[[package]]
 name = "hermit-abi"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3228,6 +3214,20 @@ dependencies = [
  "proc-macro2 1.0.51",
  "quote 1.0.23",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "lazy_static",
+ "rocket",
+ "serde_json",
+ "solana-client",
+ "solana-sdk",
+ "solana-transaction-status",
+ "uuid",
 ]
 
 [[package]]
