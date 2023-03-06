@@ -2710,6 +2710,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
+name = "poc"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "poc-framework",
+ "serde_json",
+ "solana-bpf-loader-program",
+ "solana-client",
+ "solana-program",
+ "solana-sdk",
+ "solana-transaction-status",
+ "spl-associated-token-account",
+]
+
+[[package]]
 name = "poc-framework"
 version = "0.3.0"
 dependencies = [
@@ -2741,21 +2756,6 @@ dependencies = [
  "spl-associated-token-account",
  "spl-memo",
  "spl-token",
-]
-
-[[package]]
-name = "poc-rewrite"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "poc-framework",
- "serde_json",
- "solana-bpf-loader-program",
- "solana-client",
- "solana-program",
- "solana-sdk",
- "solana-transaction-status",
- "spl-associated-token-account",
 ]
 
 [[package]]
