@@ -230,11 +230,6 @@ fn tx_info(tx_hash: TxHash) -> Result<Value, Status> {
 
 #[launch]
 fn rocket() -> _ {
-    let config = rocket::config::Config {
-        address: "0.0.0.0".parse().unwrap(),
-        port: 8000,
-        ..Default::default()
-    };
     rocket::build()
         .mount("/", FileServer::from("dist").rank(1))
         .mount("/static", FileServer::from("static").rank(2))
@@ -242,7 +237,6 @@ fn rocket() -> _ {
         .mount("/choose", FileServer::from("dist").rank(2))
         .mount("/program", FileServer::from("dist").rank(2))
         .mount("/program/not-supported", FileServer::from("dist").rank(3))
-        .configure(config)
         .attach(Cors)
 }
 

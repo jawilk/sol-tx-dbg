@@ -38,6 +38,8 @@
       <grid-item
         @move="onDragStart"
         @moved="onDragStop"
+        @resize="onDragStart"
+        @resized="onDragStop"
         :class="{ dragging: isDragging }"
         v-for="item in layout"
         :key="item.i"
@@ -90,7 +92,7 @@ const startLayout = [
     x: 1,
     y: 0,
     w: 5,
-    h: 20,
+    h: 22,
     i: "0",
     name: "editor",
     comp: "EditorComponent",
@@ -123,7 +125,7 @@ const startLayout = [
     x: 9,
     y: 1,
     w: 3,
-    h: 6,
+    h: 7,
     i: "3",
     name: "breakpoints",
     comp: "BreakpointComp",
@@ -155,7 +157,7 @@ const startLayout = [
   {
     x: 6,
     y: 0,
-    w: 6,
+    w: 3,
     h: 7,
     i: "6",
     name: "variables",
@@ -164,9 +166,9 @@ const startLayout = [
     isComponent: true,
   },
   {
-    x: 1,
-    y: 3,
-    w: 4,
+    x: 9,
+    y: 1,
+    w: 3,
     h: 8,
     i: "7",
     name: "memory map",
@@ -208,9 +210,9 @@ export default {
   },
   data() {
     return {
-      files_url: "http://localhost:8000/static/",
+      files_url: "http://localhost:8086/static/",
       websocket_url: "ws://localhost:9007/?token=",
-      cpi_url: "http://localhost:8000/program",
+      cpi_url: "http://localhost:8084/program",
       LLDB: null,
       layout: startLayout,
       index: 0,
@@ -247,7 +249,15 @@ export default {
     this.cleanup();
   },
   async mounted() {
-    this.status = "Starting...";
+    if (!this.$route.query.tx_hash) {
+      console.log("IS CPI");
+      this.status = "Starting CPI...";
+    } else {
+      console.log("NO CPI");
+      this.status = "Starting...";
+      this.tx_hash = this.$route.query.tx_hash;
+      this.inst_nr = this.$route.query.inst_nr;
+    }
     console.log("program query", this.$route.query);
     // vue-grid-layout
     this.index = this.layout.length;
@@ -263,13 +273,8 @@ export default {
     }
     console.log("name", this.program_name);
     if (!this.$route.query.tx_hash) {
-      console.log("IS CPI");
-      this.status = "Starting CPI...";
       this.LLDB["websocket"]["url"] = this.websocket_url + this.uuid;
     } else {
-      console.log("NO CPI");
-      this.tx_hash = this.$route.query.tx_hash;
-      this.inst_nr = this.$route.query.inst_nr;
       this.LLDB["websocket"]["url"] =
         this.websocket_url +
         this.uuid +
@@ -477,7 +482,14 @@ export default {
       if (!this.programs_supported.includes(pubkey)) {
         url = this.cpi_url + "/not-supported?program_id=" + pubkey;
       } else {
-        url = this.cpi_url + "?uuid=" + this.uuid + "&program_id=" + pubkey;
+        url =
+          this.cpi_url +
+          "?uuid=" +
+          this.uuid +
+          "&program_name=" +
+          this.getProgramName(pubkey) +
+          "&program_id=" +
+          pubkey;
       }
       this.status = "In CPI";
       window.open(url);
@@ -485,6 +497,14 @@ export default {
       await this.LLDB.ccall("request_next_with_cpi", "boolean", [], []);
       this.status = "Running";
       console.log("CPI finished");
+    },
+    getProgramName(pubkey) {
+      switch (pubkey) {
+        case "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL":
+          return "Associated Token Program";
+        case "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA":
+          return "Token Program";
+      }
     },
     async check_finished() {
       const isFinished = await this.LLDB.ccall(
