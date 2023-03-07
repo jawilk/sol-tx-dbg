@@ -8,7 +8,6 @@ use std::io::Write;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::Mutex;
 use std::time::Instant;
 use std::{thread, time};
 
@@ -22,7 +21,8 @@ use rocket::request::FromParam;
 use rocket::{Request, Response};
 
 use rocket::serde::json::{json, Value};
-use rocket::serde::Serialize;
+use rocket::serde::{Deserialize, Serialize};
+use serde_json::from_reader;
 
 use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcTransactionConfig;
@@ -36,23 +36,30 @@ use anyhow::anyhow;
 
 use uuid::Uuid;
 
-const SUPPORTED_PROGRAMS: [&str; 2] = [
-    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
-    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-];
 lazy_static! {
-    static ref SUPPORTED_PROGRAMS_INFO: Mutex<HashMap<&'static str, String>> = {
-        let mut m = HashMap::new();
-        m.insert(
-            SUPPORTED_PROGRAMS[0],
-            String::from("Associated Token Program"),
-        );
-        m.insert(
-            SUPPORTED_PROGRAMS[1],
-            String::from("Token Program"),
-        );
-        Mutex::new(m)
+    static ref SUPPORTED_PROGRAMS: HashMap<String, String> = {
+        let data = load_supported_programs("static/supported_programs.json");
+        println!("supp: {:?}", data);
+        let mut map = HashMap::new();
+        for d in data {
+            map.insert(d.id, d.name);
+        }
+        map
     };
+}
+
+fn load_supported_programs(file_path: &str) -> Vec<SupportedProgram> {
+    let file = File::open(file_path).unwrap();
+    let reader = BufReader::new(file);
+    let data = from_reader(reader).unwrap();
+    data
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(crate = "rocket::serde")]
+struct SupportedProgram {
+    id: String,
+    name: String,
 }
 
 struct TxHash(String);
@@ -194,17 +201,10 @@ fn get_tx_info(tx_hash_str: &str) -> anyhow::Result<InitResponse> {
     let mut tx_program_metas = vec![];
     for mut inst_programs in tx_programs {
         let program_id = inst_programs.pop().unwrap();
-        let is_supported = SUPPORTED_PROGRAMS.iter().any(|&p| p == program_id);
+        let is_supported = SUPPORTED_PROGRAMS.contains_key(&program_id);
         tx_program_metas.push(ProgramMeta {
             name: if is_supported {
-                Some(
-                    SUPPORTED_PROGRAMS_INFO
-                        .lock()
-                        .unwrap()
-                        .get(&*program_id)
-                        .unwrap()
-                        .clone(),
-                )
+                Some(SUPPORTED_PROGRAMS.get(&program_id).unwrap().clone())
             } else {
                 None
             },
