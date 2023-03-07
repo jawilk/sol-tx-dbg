@@ -210,9 +210,9 @@ export default {
   },
   data() {
     return {
-      files_url: "http://localhost:8086/static/",
-      websocket_url: "ws://localhost:9007/?token=",
-      cpi_url: "http://localhost:8084/program",
+      files_url: process.env.VUE_APP_FILES_URL,
+      websocket_url: process.env.VUE_APP_WEBSOCKET_URL,
+      cpi_url: process.env.VUE_APP_CPI_URL,
       LLDB: null,
       layout: startLayout,
       index: 0,

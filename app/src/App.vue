@@ -104,7 +104,7 @@ body {
   left: 0;
   z-index: 15;
   padding: 5px;
-  position: fixed;
+  position: absolute;
   text-align: center;
   width: 100%;
   border: none;

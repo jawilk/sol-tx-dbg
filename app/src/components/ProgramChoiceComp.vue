@@ -40,7 +40,7 @@ export default {
   name: "ProgramChoiceComp",
   data() {
     return {
-      init_url: "http://localhost:8000/tx-info/",
+      init_url: process.env.VUE_APP_TX_INFO_URL,
       uuid: "",
       instData: [],
       tx_hash: "",
