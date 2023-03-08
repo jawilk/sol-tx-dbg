@@ -39,7 +39,7 @@
 }
 
 .dis-background {
-  color: #98c379 !important;
+  background-color: #595910 !important;
 }
 </style>
   

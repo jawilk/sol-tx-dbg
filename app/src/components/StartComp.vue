@@ -12,12 +12,6 @@
 
       <b>ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL</b><br />
       <b>TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA</b><br /><br />
-
-      <b>Please note</b>: Since on-chain programs are compiled with
-      optimizations, stepping through the code won't always follow the original
-      source code<br>
-      (jumping around is expected; breakpoints+continue will lead to
-      a smoother experience).
     </p>
   </div>
 </template>

@@ -329,8 +329,7 @@ export default {
       }
     },
     cleanup() {
-      // this.LLDB['noExitRuntime'] = 0;
-      this.LLDB._exit(0);
+      // this.LLDB._exit(0);
       this.LLDB.exports = null;
       this.LLDB = null;
     },
@@ -742,7 +741,7 @@ export default {
     },
     // Editor
     async toggleBreakpoints(file, line) {
-      if (this.LLDB === null) {
+      if (this.LLDB === null || !this.isActive) {
         return;
       }
       console.log("toggleBreakpoints0", this.breakpoints[file]);

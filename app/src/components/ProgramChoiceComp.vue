@@ -2,35 +2,36 @@
   <div class="program-choice-header">
     <span>
       This transaction contains
-      <span style="color: #98c379">{{ instData.length }}</span> instruction{{ pluralize }}.
-      Please choose:
+      <span style="color: #98c379">{{ instData.length }}</span> instruction{{
+        pluralize
+      }}. Please choose:
     </span>
   </div>
   <div class="program-view">
     <div class="program-wrap" v-for="(program, index) in instData" :key="index">
-        <div class="program-header">{{ index }}</div>
-        <div class="program-info">
-          Program Name: {{ program.name ?? "Unknown" }}<br /><br />
-          Program ID: {{ program.program_id }}<br /><br />
-          CPIs:
-          {{ program.cpi_programs ? program.cpi_programs.join(", ") : "None"
-          }}<br /><br />
-          <button
-            v-if="!program.is_supported"
-            type="submit"
-            class="chooseBtn startBtnDis"
-          >
-            not supported
-          </button>
-          <button
-            @click="startDebugger(index)"
-            v-if="program.is_supported"
-            type="submit"
-            class="chooseBtn"
-          >
-            replay
-          </button>
-        </div>
+      <div class="program-header">{{ index }}</div>
+      <div class="program-info">
+        Program Name: {{ program.name ?? "Unknown" }}<br /><br />
+        Program ID: {{ program.program_id }}<br /><br />
+        CPIs:
+        {{ program.cpi_programs ? program.cpi_programs.join(", ") : "None"
+        }}<br /><br />
+        <button
+          v-if="!program.is_supported"
+          type="submit"
+          class="chooseBtn startBtnDis"
+        >
+          not supported
+        </button>
+        <button
+          @click="startDebugger(index)"
+          v-if="program.is_supported"
+          type="submit"
+          class="chooseBtn"
+        >
+          replay
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -71,13 +72,8 @@ export default {
       const responseJson = await response.json();
       this.uuid = responseJson.uuid;
       this.instData = responseJson.tx_program_metas;
-      console.log(this.instData, this.uuid);
     },
     startDebugger(index) {
-      console.log(
-        "start debugger",
-        this.instData[index].program_id + "_" + this.uuid
-      );
       this.$router.push({
         name: "program",
         query: {
