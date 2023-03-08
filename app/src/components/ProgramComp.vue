@@ -122,10 +122,10 @@ const startLayout = [
     isComponent: true,
   },
   {
-    x: 9,
+    x: 0,
     y: 1,
-    w: 3,
-    h: 7,
+    w: 1,
+    h: 9,
     i: "3",
     name: "breakpoints",
     comp: "BreakpointComp",
@@ -157,7 +157,7 @@ const startLayout = [
   {
     x: 6,
     y: 0,
-    w: 3,
+    w: 6,
     h: 7,
     i: "6",
     name: "variables",
@@ -239,6 +239,9 @@ export default {
       program_real_path: "/home/wj/temp/test-solana/program/",
       isDragging: false,
       supported_programs: [],
+      rust_version: "",
+      solana_version: "",
+      borsh_version: "",
     };
   },
   beforeCreate() {
@@ -354,7 +357,7 @@ export default {
         case "RegistersComp":
           return { registers: this.registers };
         case "VariablesComp":
-          return { variables: this.variables };
+          return { variables: this.variables, getMemory: this.getMemory };
         default:
           return {};
       }
@@ -444,8 +447,8 @@ export default {
       this.LLDB._free(resPtr);
       return lldbOutput;
     },
-    async getMemory(address, bytes) {
-      if (!this.isActive) {
+    async getMemory(address, bytes, is_user) {
+      if (is_user && !this.isActive) {
         return "please wait for the current action to finish or restart";
       }
       const command = "mem read " + address + " -c " + bytes;
@@ -472,7 +475,7 @@ export default {
       );
       console.log("request_cpi_program_id: ", pubkey);
       let url;
-      const p = this.supported_programs.find(obj => obj.id === pubkey);
+      const p = this.supported_programs.find((obj) => obj.id === pubkey);
       if (p) {
         url =
           this.cpi_url +
@@ -619,6 +622,7 @@ export default {
             JSON.stringify(this.breakpoints[this.editorState.file])
           );
         }
+        this.editorState.updateType = "all";
         this.editorState["breakpoints"] = breakpointsEditor;
         this.editorState = JSON.parse(JSON.stringify(this.editorState));
       } else {
@@ -686,14 +690,21 @@ export default {
       this.disData = data;
       this.LLDB._free(resPtr);
     },
+    // stack trace -> editor
     sanitizeFileName(fileName) {
-      if (fileName.includes("solana-program-1.10.33")) {
+      if (fileName.includes(this.solana_version)) {
         fileName =
-          "code/sdk/solana-program-1.10.33/" +
-          fileName.split("solana-program-1.10.33/")[1];
+          "code/sdk/" +
+          this.solana_version +
+          fileName.split(this.solana_version)[1];
       } else if (fileName.includes("rust-own")) {
         fileName =
-          "code/rust-solana-1.59.0/" + fileName.split("rust-own/rust/")[1];
+          "code/" + this.rust_version + fileName.split("rust-own/rust")[1];
+      } else if (fileName.includes(this.borsh_version)) {
+        fileName =
+          "code/" +
+          this.borsh_version +
+          fileName.split(this.borsh_version)[1];
       } else {
         fileName = "code/program/" + fileName.split("/program/")[1];
       }
@@ -706,16 +717,24 @@ export default {
         this.files_url + "trees/" + this.program_id + ".json"
       );
       this.tree = await res.json();
+      this.rust_version = this.tree.children[2].name;
+      this.solana_version = this.tree.children[4].children[0].name;
+      this.borsh_version = this.tree.children[1].name;
+      console.log("rust", this.tree);
+      console.log("tree", this.solana_version);
     },
+    // editor -> LLDB
     sanitizeBreakpointPath(path) {
-      if (path.includes("solana-program-1.10.33")) {
+      if (path.includes(this.solana_version)) {
         path =
-          "/home/wj/.cargo/registry/src/github.com-1ecc6299db9ec823/solana-program-1.10.33/" +
-          path.split("solana-program-1.10.33/")[1];
-      } else if (path.includes("rust-solana-1.59.0")) {
+          "/home/wj/.cargo/registry/src/github.com-1ecc6299db9ec823/" +
+          this.solana_version +
+          "/" +
+          path.split(this.solana_version + "/")[1];
+      } else if (path.includes(this.rust_version)) {
         path =
           "/home/wj/projects/rust-own/rust/" +
-          path.split("rust-solana-1.59.0/")[1];
+          path.split(this.rust_version + "/")[1];
       } else {
         path = this.program_real_path + path.split("/program/")[1];
       }
@@ -765,6 +784,7 @@ export default {
         .map((b) => b.line);
 
       if (file === this.editorState.file) {
+        this.editorState.updateType = "breakpoints";
         this.editorState.breakpoints = this.breakpoints[this.editorState.file];
         this.editorState = JSON.parse(JSON.stringify(this.editorState));
         console.log("editorState.breakpoints", this.editorState.breakpoints);

@@ -48,7 +48,7 @@ export default {
       console.log("execute command", this.address, this.bytes, this.format);
       switch (this.format) {
         case "pubkey": {
-          const output = await this.getMemory(this.address, 32);
+          const output = await this.getMemory(this.address, 32, true);
           let matches;
           let byteString = "";
           while ((matches = this.pubkeyRegex.exec(output)) !== null) {

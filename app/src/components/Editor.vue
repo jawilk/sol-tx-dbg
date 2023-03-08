@@ -102,7 +102,6 @@ export default {
     return {
       curFile: "",
       prevBreakpointsEditor: [],
-      is_first: true,
     };
   },
   methods: {
@@ -130,28 +129,18 @@ export default {
       }
     },
     toggleBreakpoint(pos) {
-      // is_first hack for focus/scroll
-      console.log("is_first !!!!", this.is_first);
       let breakpoints = this.view.state.field(breakpointState);
       let hasBreakpoint = false;
       breakpoints.between(pos, pos, () => {
         hasBreakpoint = true;
       });
       const effects = [breakpointEffect.of({ pos, on: !hasBreakpoint })];
-      if (this.is_first) {
-        effects.push(
-          EditorView.scrollIntoView(pos, {
-            y: "center",
-          })
-        );
-      }
       this.view.dispatch(
         this.getCodemirrorStates().state.update({
           effects: effects,
         })
         // {scrollIntoView: 'always'},
       );
-      this.is_first = false;
     },
     handleBreakpoints() {
       console.log("breakpointsEditor!", this.editorState.breakpoints, this.prevBreakpointsEditor);
@@ -191,7 +180,6 @@ export default {
   watch: {
     editorState() {
       console.log("(editor) file WATCHER", this.editorState, this.curFile);
-      this.is_first = true;
       if (this.editorState.file !== this.curFile) {
         this.prevBreakpointsEditor = [];
         console.log("(editor) NEW FILE", this.editorState);
@@ -227,7 +215,7 @@ export default {
         if (this.editorState.breakpoints !== undefined) {
           this.handleBreakpoints();
         }
-        if (this.editorState.line !== undefined) {
+        if (this.editorState.updateType !== "breakpoints" && this.editorState.line !== undefined) {
           this.highlightLine(this.editorState.line);
         }
       }
