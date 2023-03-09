@@ -1,7 +1,7 @@
 //! Comparison traits for `[T]`.
 
-use crate::cmp::{self, Ordering};
-use crate::ffi;
+use crate::cmp;
+use crate::cmp::Ordering::{self, Greater, Less};
 use crate::mem;
 
 use super::from_raw_parts;
@@ -14,7 +14,8 @@ extern "C" {
     ///
     /// Returns 0 for equal, < 0 for less than and > 0 for greater
     /// than.
-    fn memcmp(s1: *const u8, s2: *const u8, n: usize) -> ffi::c_int;
+    // FIXME(#32610): Return type should be c_int
+    fn memcmp(s1: *const u8, s2: *const u8, n: usize) -> i32;
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -188,18 +189,18 @@ impl<A: Ord> SliceOrd for A {
 impl SliceOrd for u8 {
     #[inline]
     fn compare(left: &[Self], right: &[Self]) -> Ordering {
-        // Since the length of a slice is always less than or equal to isize::MAX, this never underflows.
-        let diff = left.len() as isize - right.len() as isize;
-        // This comparison gets optimized away (on x86_64 and ARM) because the subtraction updates flags.
-        let len = if left.len() < right.len() { left.len() } else { right.len() };
-        // SAFETY: `left` and `right` are references and are thus guaranteed to be valid.
-        // We use the minimum of both lengths which guarantees that both regions are
-        // valid for reads in that interval.
-        let mut order = unsafe { memcmp(left.as_ptr(), right.as_ptr(), len) as isize };
+        let order =
+            // SAFETY: `left` and `right` are references and are thus guaranteed to be valid.
+            // We use the minimum of both lengths which guarantees that both regions are
+            // valid for reads in that interval.
+            unsafe { memcmp(left.as_ptr(), right.as_ptr(), cmp::min(left.len(), right.len())) };
         if order == 0 {
-            order = diff;
+            left.len().cmp(&right.len())
+        } else if order < 0 {
+            Less
+        } else {
+            Greater
         }
-        order.cmp(&0)
     }
 }
 

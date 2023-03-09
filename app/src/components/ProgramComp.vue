@@ -293,7 +293,8 @@ export default {
       "execute_command",
       "number",
       ["string"],
-      ["b solana_program::program::invoke_signed_unchecked"]
+      ["b solana_program::program::invoke_signed_unchecked"],
+      { async: true }
     );
     await this.LLDB._free(res);
     // connect to vm
@@ -419,7 +420,13 @@ export default {
       var data = await fetch(this.files_url + "elfs/" + file_name);
       data = await data["arrayBuffer"]();
       this.LLDB.FS.writeFile(file_name, new Uint8Array(data));
-      let res = this.LLDB.ccall("create_target", null, ["string"], [file_name]);
+      let res = this.LLDB.ccall(
+        "create_target",
+        null,
+        ["string"],
+        [file_name],
+        { async: true }
+      );
       this.LLDB._free(res);
     },
     async connect() {
@@ -427,7 +434,8 @@ export default {
         "execute_command",
         "number",
         ["string"],
-        ["gdb-remote 9007"]
+        ["gdb-remote 9007"],
+        { async: true }
       );
       this.LLDB._free(res);
     },
@@ -440,7 +448,8 @@ export default {
         "execute_command",
         "number",
         ["string"],
-        [command]
+        [command],
+        { async: true }
       );
       const lldbOutput = await this.LLDB.UTF8ToString(resPtr);
       this.LLDB._free(resPtr);
@@ -455,7 +464,8 @@ export default {
         "execute_command",
         "number",
         ["string"],
-        [command]
+        [command],
+        { async: true }
       );
       const lldbOutput = await this.LLDB.UTF8ToString(resPtr);
       this.LLDB._free(resPtr);
@@ -467,7 +477,8 @@ export default {
         "request_cpi_program_id",
         "number",
         [],
-        []
+        [],
+        { async: true }
       );
       const pubkey = bs58.encode(
         new Uint8Array(this.LLDB.HEAPU8.buffer, pubkeyArr, 32)
@@ -490,7 +501,9 @@ export default {
       this.status = "In CPI";
       window.open(url);
       // This will block till cpi finished
-      await this.LLDB.ccall("request_next_with_cpi", "boolean", [], []);
+      await this.LLDB.ccall("request_next_with_cpi", "boolean", [], [], {
+        async: true,
+      });
       this.status = "Running";
       console.log("CPI finished");
     },
@@ -499,7 +512,8 @@ export default {
         "should_terminate",
         "number",
         [],
-        []
+        [],
+        { async: true }
       );
       if (isFinished === -1) {
         this.status = "Finished";
@@ -521,7 +535,8 @@ export default {
         "request_stepIn_with_cpi",
         "boolean",
         [],
-        []
+        [],
+        { async: true }
       );
       // CPI
       if (is_before_cpi === true) {
@@ -536,7 +551,8 @@ export default {
         "execute_command",
         "number",
         ["string"],
-        ["finish"]
+        ["finish"],
+        { async: true }
       );
       this.LLDB._free(resPtr);
       await this.updateEditor();
@@ -549,7 +565,8 @@ export default {
         "request_next_with_cpi",
         "boolean",
         [],
-        []
+        [],
+        { async: true }
       );
       // CPI
       if (is_before_cpi === true) {
@@ -564,7 +581,8 @@ export default {
         "request_continue_with_cpi",
         "boolean",
         [],
-        []
+        [],
+        { async: true }
       );
       // CPI
       if (is_before_cpi === true) {
@@ -581,7 +599,9 @@ export default {
       console.log("LLDBRequest", requestStr);
       let txPtr = await this.LLDB._malloc(requestStr.length + 1);
       await this.LLDB.stringToUTF8(requestStr, txPtr, requestStr.length + 1);
-      const rxPtr = await this.LLDB.ccall(name, "number", ["number"], [txPtr]);
+      const rxPtr = await this.LLDB.ccall(name, "number", ["number"], [txPtr], {
+        async: true,
+      });
       const responseStr = await this.LLDB.UTF8ToString(rxPtr);
       let responseJSON = JSON.parse(responseStr);
       console.log("response", responseJSON);
@@ -608,22 +628,24 @@ export default {
       let path = responseJSON.body.stackFrames[0].source.path;
       if (path) {
         let file = this.sanitizeFileName(path);
-        this.load_file(file);
-        this.editorState["file"] = file;
-        this.editorState["line"] = responseJSON.body.stackFrames[0].line;
-        this.lineMark["file"] = file;
-        this.lineMark["line"] = responseJSON.body.stackFrames[0].line;
-        let breakpointsEditor;
-        if (this.breakpoints[this.editorState.file] === undefined) {
-          breakpointsEditor = [];
-        } else {
-          breakpointsEditor = JSON.parse(
-            JSON.stringify(this.breakpoints[this.editorState.file])
-          );
+        if (file !== undefined) {
+          this.load_file(file);
+          this.editorState["file"] = file;
+          this.editorState["line"] = responseJSON.body.stackFrames[0].line;
+          this.lineMark["file"] = file;
+          this.lineMark["line"] = responseJSON.body.stackFrames[0].line;
+          let breakpointsEditor;
+          if (this.breakpoints[this.editorState.file] === undefined) {
+            breakpointsEditor = [];
+          } else {
+            breakpointsEditor = JSON.parse(
+              JSON.stringify(this.breakpoints[this.editorState.file])
+            );
+          }
+          this.editorState.updateType = "all";
+          this.editorState["breakpoints"] = breakpointsEditor;
+          this.editorState = JSON.parse(JSON.stringify(this.editorState));
         }
-        this.editorState.updateType = "all";
-        this.editorState["breakpoints"] = breakpointsEditor;
-        this.editorState = JSON.parse(JSON.stringify(this.editorState));
       } else {
         console.log("DISASSEMBLY");
       }
@@ -649,7 +671,8 @@ export default {
         "execute_command",
         "number",
         ["string"],
-        ["register read"]
+        ["register read"],
+        { async: true }
       );
       let registers = this.LLDB.UTF8ToString(resPtr);
       let registersParsed = [];
@@ -670,7 +693,8 @@ export default {
         "execute_command",
         "number",
         ["string"],
-        ["disassemble -p -b -c 7"]
+        ["disassemble -p -b -c 7"],
+        { async: true }
       );
       let res = this.LLDB.UTF8ToString(resPtr);
       res = res.split("\n").slice(1);
@@ -701,11 +725,12 @@ export default {
           "code/" + this.rust_version + fileName.split("rust-own/rust")[1];
       } else if (fileName.includes(this.borsh_version)) {
         fileName =
-          "code/" +
-          this.borsh_version +
-          fileName.split(this.borsh_version)[1];
-      } else {
+          "code/" + this.borsh_version + fileName.split(this.borsh_version)[1];
+      } else if (fileName.includes("/program/src/")) {
         fileName = "code/program/" + fileName.split("/program/")[1];
+      } else {
+        console.log("unknown file", fileName);
+        fileName = undefined;
       }
       console.log("sanitized:", fileName);
       return fileName;
@@ -720,7 +745,8 @@ export default {
       this.solana_version = this.tree.children[4].children[0].name;
       this.borsh_version = this.tree.children[1].name;
       console.log("rust", this.tree);
-      console.log("tree", this.solana_version);
+      console.log("solana", this.solana_version);
+      console.log("borsh", this.borsh_version);
     },
     // editor -> LLDB
     sanitizeBreakpointPath(path) {
@@ -741,6 +767,7 @@ export default {
     },
     // Editor
     async toggleBreakpoints(file, line) {
+      console.log("toggleBreakpoin!!!!!!!!!", file, line);
       if (this.LLDB === null || !this.isActive) {
         return;
       }

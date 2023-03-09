@@ -12,9 +12,11 @@ use solana_program::instruction::{AccountMeta, Instruction};
 use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_program};
 use solana_transaction_status::UiRawMessage;
 use solana_transaction_status::UiTransaction;
+use bs58::decode;
 
-const SUPPORTED_PROGRAMS: [&str; 2] =
-    ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"];
+
+const SUPPORTED_PROGRAMS: [&str; 3] =
+    ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi"];
 
 pub fn main() {
     let args: Vec<_> = env::args().collect();
@@ -44,7 +46,7 @@ fn create_single_inst(
     Instruction {
         program_id: Pubkey::from_str(&message.account_keys[inst_index]).unwrap(),
         accounts,
-        data: inst.data.as_bytes().to_vec(),
+        data: decode(inst.data.clone()).into_vec().unwrap(),
     }
 }
 
@@ -104,6 +106,7 @@ fn get_inst(
                     }
                 }
             }
+
             Ok((
                 create_single_inst(&message, inst_nr, writable_accs, signer_accs),
                 programs_supported,
@@ -159,8 +162,8 @@ fn setup(tx_hash: &str, inst_nr: usize, port: u16) {
             &sanitize_accounts(&inst, &programs_supported, &programs_not_supported),
             &rpc_client,
         )
-        .add_programs_supported(&programs_supported)
         .add_programs_not_supported(&programs_not_supported, &rpc_client)
+        .add_programs_supported(&programs_supported)
         // Add the original payer
         .add_account_with_lamports(payer, system_program::ID, sol_to_lamports(1.0))
         .build();

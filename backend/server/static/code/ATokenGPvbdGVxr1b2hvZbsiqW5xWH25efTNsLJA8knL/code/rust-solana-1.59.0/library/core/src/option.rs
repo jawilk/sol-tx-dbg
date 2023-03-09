@@ -34,7 +34,7 @@
 //! // Pattern match to retrieve the value
 //! match result {
 //!     // The division was valid
-//!     Some(x) => println!("Result: {x}"),
+//!     Some(x) => println!("Result: {}", x),
 //!     // The division was invalid
 //!     None    => println!("Cannot divide by 0"),
 //! }
@@ -66,7 +66,7 @@
 //!
 //! fn check_optional(optional: Option<Box<i32>>) {
 //!     match optional {
-//!         Some(p) => println!("has value {p}"),
+//!         Some(p) => println!("has value {}", p),
 //!         None => println!("has no value"),
 //!     }
 //! }
@@ -80,12 +80,10 @@
 //! * [`Box<U>`]
 //! * `&U`
 //! * `&mut U`
-//! * `fn`, `extern "C" fn`[^extern_fn]
+//! * `fn`, `extern "C" fn`
 //! * [`num::NonZero*`]
 //! * [`ptr::NonNull<U>`]
 //! * `#[repr(transparent)]` struct around one of the types in this list.
-//!
-//! [^extern_fn]: this remains true for any other ABI: `extern "abi" fn` (_e.g._, `extern "system" fn`)
 //!
 //! [`Box<U>`]: ../../std/boxed/struct.Box.html
 //! [`num::NonZero*`]: crate::num
@@ -272,7 +270,7 @@
 //! let mut bt = BTreeMap::new();
 //! bt.insert(20u8, "foo");
 //! bt.insert(42u8, "bar");
-//! let res = [0u8, 1, 11, 200, 22]
+//! let res = vec![0u8, 1, 11, 200, 22]
 //!     .into_iter()
 //!     .map(|x| {
 //!         // `checked_sub()` returns `None` on error
@@ -392,10 +390,10 @@
 //! [impl-FromIterator]: Option#impl-FromIterator%3COption%3CA%3E%3E
 //!
 //! ```
-//! let v = [Some(2), Some(4), None, Some(8)];
+//! let v = vec![Some(2), Some(4), None, Some(8)];
 //! let res: Option<Vec<_>> = v.into_iter().collect();
 //! assert_eq!(res, None);
-//! let v = [Some(2), Some(4), Some(8)];
+//! let v = vec![Some(2), Some(4), Some(8)];
 //! let res: Option<Vec<_>> = v.into_iter().collect();
 //! assert_eq!(res, Some(vec![2, 4, 8]));
 //! ```
@@ -409,10 +407,10 @@
 //! [impl-Sum]: Option#impl-Sum%3COption%3CU%3E%3E
 //!
 //! ```
-//! let v = [None, Some(1), Some(2), Some(3)];
+//! let v = vec![None, Some(1), Some(2), Some(3)];
 //! let res: Option<i32> = v.into_iter().sum();
 //! assert_eq!(res, None);
-//! let v = [Some(1), Some(2), Some(21)];
+//! let v = vec![Some(1), Some(2), Some(21)];
 //! let res: Option<i32> = v.into_iter().product();
 //! assert_eq!(res, Some(42));
 //! ```
@@ -495,15 +493,14 @@
 //! }
 //!
 //! match name_of_biggest_animal {
-//!     Some(name) => println!("the biggest animal is {name}"),
+//!     Some(name) => println!("the biggest animal is {}", name),
 //!     None => println!("there are no animals :("),
 //! }
 //! ```
 
 #![stable(feature = "rust1", since = "1.0.0")]
 
-use crate::iter::{self, FromIterator, FusedIterator, TrustedLen};
-use crate::marker::Destruct;
+use crate::iter::{FromIterator, FusedIterator, TrustedLen};
 use crate::panicking::{panic, panic_str};
 use crate::pin::Pin;
 use crate::{
@@ -549,32 +546,9 @@ impl<T> Option<T> {
     #[must_use = "if you intended to assert that this has a value, consider `.unwrap()` instead"]
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
-    #[rustc_const_stable(feature = "const_option_basics", since = "1.48.0")]
+    #[rustc_const_stable(feature = "const_option", since = "1.48.0")]
     pub const fn is_some(&self) -> bool {
         matches!(*self, Some(_))
-    }
-
-    /// Returns `true` if the option is a [`Some`] and the value inside of it matches a predicate.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// #![feature(is_some_with)]
-    ///
-    /// let x: Option<u32> = Some(2);
-    /// assert_eq!(x.is_some_and(|&x| x > 1), true);
-    ///
-    /// let x: Option<u32> = Some(0);
-    /// assert_eq!(x.is_some_and(|&x| x > 1), false);
-    ///
-    /// let x: Option<u32> = None;
-    /// assert_eq!(x.is_some_and(|&x| x > 1), false);
-    /// ```
-    #[must_use]
-    #[inline]
-    #[unstable(feature = "is_some_with", issue = "93050")]
-    pub fn is_some_and(&self, f: impl FnOnce(&T) -> bool) -> bool {
-        matches!(self, Some(x) if f(x))
     }
 
     /// Returns `true` if the option is a [`None`] value.
@@ -592,7 +566,7 @@ impl<T> Option<T> {
                   `.and_then(|_| panic!(\"`Option` had a value when expected `None`\"))` instead"]
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
-    #[rustc_const_stable(feature = "const_option_basics", since = "1.48.0")]
+    #[rustc_const_stable(feature = "const_option", since = "1.48.0")]
     pub const fn is_none(&self) -> bool {
         !self.is_some()
     }
@@ -618,10 +592,10 @@ impl<T> Option<T> {
     /// // First, cast `Option<String>` to `Option<&String>` with `as_ref`,
     /// // then consume *that* with `map`, leaving `text` on the stack.
     /// let text_length: Option<usize> = text.as_ref().map(|s| s.len());
-    /// println!("still can print text: {text:?}");
+    /// println!("still can print text: {:?}", text);
     /// ```
     #[inline]
-    #[rustc_const_stable(feature = "const_option_basics", since = "1.48.0")]
+    #[rustc_const_stable(feature = "const_option", since = "1.48.0")]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub const fn as_ref(&self) -> Option<&T> {
         match *self {
@@ -775,7 +749,7 @@ impl<T> Option<T> {
     #[rustc_const_unstable(feature = "const_option_ext", issue = "91930")]
     pub const fn unwrap_or(self, default: T) -> T
     where
-        T: ~const Destruct,
+        T: ~const Drop,
     {
         match self {
             Some(x) => x,
@@ -798,7 +772,7 @@ impl<T> Option<T> {
     pub const fn unwrap_or_else<F>(self, f: F) -> T
     where
         F: ~const FnOnce() -> T,
-        F: ~const Destruct,
+        F: ~const Drop,
     {
         match self {
             Some(x) => x,
@@ -903,7 +877,7 @@ impl<T> Option<T> {
     pub const fn map<U, F>(self, f: F) -> Option<U>
     where
         F: ~const FnOnce(T) -> U,
-        F: ~const Destruct,
+        F: ~const Drop,
     {
         match self {
             Some(x) => Some(f(x)),
@@ -921,10 +895,10 @@ impl<T> Option<T> {
     /// let v = vec![1, 2, 3, 4, 5];
     ///
     /// // prints "got: 4"
-    /// let x: Option<&usize> = v.get(3).inspect(|x| println!("got: {x}"));
+    /// let x: Option<&usize> = v.get(3).inspect(|x| println!("got: {}", x));
     ///
     /// // prints nothing
-    /// let x: Option<&usize> = v.get(5).inspect(|x| println!("got: {x}"));
+    /// let x: Option<&usize> = v.get(5).inspect(|x| println!("got: {}", x));
     /// ```
     #[inline]
     #[unstable(feature = "result_option_inspect", issue = "91345")]
@@ -932,7 +906,7 @@ impl<T> Option<T> {
     pub const fn inspect<F>(self, f: F) -> Self
     where
         F: ~const FnOnce(&T),
-        F: ~const Destruct,
+        F: ~const Drop,
     {
         if let Some(ref x) = self {
             f(x);
@@ -965,8 +939,8 @@ impl<T> Option<T> {
     pub const fn map_or<U, F>(self, default: U, f: F) -> U
     where
         F: ~const FnOnce(T) -> U,
-        F: ~const Destruct,
-        U: ~const Destruct,
+        F: ~const Drop,
+        U: ~const Drop,
     {
         match self {
             Some(t) => f(t),
@@ -994,9 +968,9 @@ impl<T> Option<T> {
     pub const fn map_or_else<U, D, F>(self, default: D, f: F) -> U
     where
         D: ~const FnOnce() -> U,
-        D: ~const Destruct,
+        D: ~const Drop,
         F: ~const FnOnce(T) -> U,
-        F: ~const Destruct,
+        F: ~const Drop,
     {
         match self {
             Some(t) => f(t),
@@ -1030,7 +1004,7 @@ impl<T> Option<T> {
     #[rustc_const_unstable(feature = "const_option_ext", issue = "91930")]
     pub const fn ok_or<E>(self, err: E) -> Result<T, E>
     where
-        E: ~const Destruct,
+        E: ~const Drop,
     {
         match self {
             Some(v) => Ok(v),
@@ -1060,7 +1034,7 @@ impl<T> Option<T> {
     pub const fn ok_or_else<E, F>(self, err: F) -> Result<T, E>
     where
         F: ~const FnOnce() -> E,
-        F: ~const Destruct,
+        F: ~const Drop,
     {
         match self {
             Some(v) => Ok(v),
@@ -1193,8 +1167,8 @@ impl<T> Option<T> {
     #[rustc_const_unstable(feature = "const_option_ext", issue = "91930")]
     pub const fn and<U>(self, optb: Option<U>) -> Option<U>
     where
-        T: ~const Destruct,
-        U: ~const Destruct,
+        T: ~const Drop,
+        U: ~const Drop,
     {
         match self {
             Some(_) => optb,
@@ -1210,25 +1184,13 @@ impl<T> Option<T> {
     /// # Examples
     ///
     /// ```
-    /// fn sq_then_to_string(x: u32) -> Option<String> {
-    ///     x.checked_mul(x).map(|sq| sq.to_string())
-    /// }
+    /// fn sq(x: u32) -> Option<u32> { Some(x * x) }
+    /// fn nope(_: u32) -> Option<u32> { None }
     ///
-    /// assert_eq!(Some(2).and_then(sq_then_to_string), Some(4.to_string()));
-    /// assert_eq!(Some(1_000_000).and_then(sq_then_to_string), None); // overflowed!
-    /// assert_eq!(None.and_then(sq_then_to_string), None);
-    /// ```
-    ///
-    /// Often used to chain fallible operations that may return [`None`].
-    ///
-    /// ```
-    /// let arr_2d = [["A0", "A1"], ["B0", "B1"]];
-    ///
-    /// let item_0_1 = arr_2d.get(0).and_then(|row| row.get(1));
-    /// assert_eq!(item_0_1, Some(&"A1"));
-    ///
-    /// let item_2_0 = arr_2d.get(2).and_then(|row| row.get(0));
-    /// assert_eq!(item_2_0, None);
+    /// assert_eq!(Some(2).and_then(sq).and_then(sq), Some(16));
+    /// assert_eq!(Some(2).and_then(sq).and_then(nope), None);
+    /// assert_eq!(Some(2).and_then(nope).and_then(sq), None);
+    /// assert_eq!(None.and_then(sq).and_then(sq), None);
     /// ```
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
@@ -1236,7 +1198,7 @@ impl<T> Option<T> {
     pub const fn and_then<U, F>(self, f: F) -> Option<U>
     where
         F: ~const FnOnce(T) -> Option<U>,
-        F: ~const Destruct,
+        F: ~const Drop,
     {
         match self {
             Some(x) => f(x),
@@ -1273,9 +1235,9 @@ impl<T> Option<T> {
     #[rustc_const_unstable(feature = "const_option_ext", issue = "91930")]
     pub const fn filter<P>(self, predicate: P) -> Self
     where
-        T: ~const Destruct,
+        T: ~const Drop,
         P: ~const FnOnce(&T) -> bool,
-        P: ~const Destruct,
+        P: ~const Drop,
     {
         if let Some(x) = self {
             if predicate(&x) {
@@ -1317,7 +1279,7 @@ impl<T> Option<T> {
     #[rustc_const_unstable(feature = "const_option_ext", issue = "91930")]
     pub const fn or(self, optb: Option<T>) -> Option<T>
     where
-        T: ~const Destruct,
+        T: ~const Drop,
     {
         match self {
             Some(x) => Some(x),
@@ -1344,7 +1306,7 @@ impl<T> Option<T> {
     pub const fn or_else<F>(self, f: F) -> Option<T>
     where
         F: ~const FnOnce() -> Option<T>,
-        F: ~const Destruct,
+        F: ~const Drop,
     {
         match self {
             Some(x) => Some(x),
@@ -1378,7 +1340,7 @@ impl<T> Option<T> {
     #[rustc_const_unstable(feature = "const_option_ext", issue = "91930")]
     pub const fn xor(self, optb: Option<T>) -> Option<T>
     where
-        T: ~const Destruct,
+        T: ~const Drop,
     {
         match (self, optb) {
             (Some(a), None) => Some(a),
@@ -1416,7 +1378,7 @@ impl<T> Option<T> {
     #[rustc_const_unstable(feature = "const_option_ext", issue = "91930")]
     pub const fn insert(&mut self, value: T) -> &mut T
     where
-        T: ~const Destruct,
+        T: ~const Drop,
     {
         *self = Some(value);
 
@@ -1449,7 +1411,7 @@ impl<T> Option<T> {
     #[rustc_const_unstable(feature = "const_option_ext", issue = "91930")]
     pub const fn get_or_insert(&mut self, value: T) -> &mut T
     where
-        T: ~const Destruct,
+        T: ~const Drop,
     {
         if let None = *self {
             *self = Some(value);
@@ -1486,6 +1448,7 @@ impl<T> Option<T> {
     where
         T: ~const Default,
     {
+        #[rustc_allow_const_fn_unstable(const_fn_trait_bound)]
         const fn default<T: ~const Default>() -> T {
             T::default()
         }
@@ -1516,7 +1479,7 @@ impl<T> Option<T> {
     pub const fn get_or_insert_with<F>(&mut self, f: F) -> &mut T
     where
         F: ~const FnOnce() -> T,
-        F: ~const Destruct,
+        F: ~const Drop,
     {
         if let None = *self {
             // the compiler isn't smart enough to know that we are not dropping a `T`
@@ -1629,8 +1592,8 @@ impl<T> Option<T> {
     #[rustc_const_unstable(feature = "const_option_ext", issue = "91930")]
     pub const fn zip<U>(self, other: Option<U>) -> Option<(T, U)>
     where
-        T: ~const Destruct,
-        U: ~const Destruct,
+        T: ~const Drop,
+        U: ~const Drop,
     {
         match (self, other) {
             (Some(a), Some(b)) => Some((a, b)),
@@ -1671,9 +1634,9 @@ impl<T> Option<T> {
     pub const fn zip_with<U, F, R>(self, other: Option<U>, f: F) -> Option<R>
     where
         F: ~const FnOnce(T, U) -> R,
-        F: ~const Destruct,
-        T: ~const Destruct,
-        U: ~const Destruct,
+        F: ~const Drop,
+        T: ~const Drop,
+        U: ~const Drop,
     {
         match (self, other) {
             (Some(a), Some(b)) => Some(f(a, b)),
@@ -1859,11 +1822,7 @@ const fn expect_failed(msg: &str) -> ! {
 /////////////////////////////////////////////////////////////////////////////
 
 #[stable(feature = "rust1", since = "1.0.0")]
-#[rustc_const_unstable(feature = "const_clone", issue = "91805")]
-impl<T> const Clone for Option<T>
-where
-    T: ~const Clone + ~const Destruct,
-{
+impl<T: Clone> Clone for Option<T> {
     #[inline]
     fn clone(&self) -> Self {
         match self {
@@ -1978,7 +1937,7 @@ impl<'a, T> const From<&'a Option<T>> for Option<&'a T> {
     /// let s: Option<String> = Some(String::from("Hello, Rustaceans!"));
     /// let o: Option<usize> = Option::from(&s).map(|ss: &String| ss.len());
     ///
-    /// println!("Can still print s: {s:?}");
+    /// println!("Can still print s: {:?}", s);
     ///
     /// assert_eq!(o, Some(18));
     /// ```
@@ -2251,7 +2210,7 @@ impl<A, V: FromIterator<A>> FromIterator<Option<A>> for Option<V> {
         // FIXME(#11084): This could be replaced with Iterator::scan when this
         // performance bug is closed.
 
-        iter::try_process(iter.into_iter(), |i| i.collect())
+        iter.into_iter().map(|x| x.ok_or(())).collect::<Result<_, _>>().ok()
     }
 }
 
@@ -2283,14 +2242,6 @@ impl<T> const ops::FromResidual for Option<T> {
         match residual {
             None => None,
         }
-    }
-}
-
-#[unstable(feature = "try_trait_v2_yeet", issue = "96374")]
-impl<T> ops::FromResidual<ops::Yeet<()>> for Option<T> {
-    #[inline]
-    fn from_residual(ops::Yeet(()): ops::Yeet<()>) -> Self {
-        None
     }
 }
 

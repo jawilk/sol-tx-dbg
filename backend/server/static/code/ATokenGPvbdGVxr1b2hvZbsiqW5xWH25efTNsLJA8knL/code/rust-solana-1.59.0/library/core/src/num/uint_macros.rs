@@ -1,6 +1,5 @@
 macro_rules! uint_impl {
-    ($SelfT:ty, $ActualT:ident, $SignedT:ident, $NonZeroT:ident,
-        $BITS:expr, $MaxV:expr,
+    ($SelfT:ty, $ActualT:ident, $SignedT:ident, $BITS:expr, $MaxV:expr,
         $rot:expr, $rot_op:expr, $rot_result:expr, $swap_op:expr, $swapped:expr,
         $reversed:expr, $le_bytes:expr, $be_bytes:expr,
         $to_xe_bytes_doc:expr, $from_xe_bytes_doc:expr) => {
@@ -17,7 +16,7 @@ macro_rules! uint_impl {
         pub const MIN: Self = 0;
 
         /// The largest value that can be represented by this integer type,
-        #[doc = concat!("2<sup>", $BITS, "</sup> &minus; 1.")]
+        #[doc = concat!("2<sup>", $BITS, "</sup> - 1.")]
         ///
         /// # Examples
         ///
@@ -273,7 +272,7 @@ macro_rules! uint_impl {
         #[doc = concat!("assert_eq!(0, 0", stringify!($SelfT), ".reverse_bits());")]
         /// ```
         #[stable(feature = "reverse_bits", since = "1.37.0")]
-        #[rustc_const_stable(feature = "reverse_bits", since = "1.37.0")]
+        #[rustc_const_stable(feature = "const_math", since = "1.37.0")]
         #[must_use = "this returns the result of the operation, \
                       without modifying the original"]
         #[inline(always)]
@@ -591,7 +590,7 @@ macro_rules! uint_impl {
         #[doc = concat!("assert_eq!(1", stringify!($SelfT), ".checked_div(0), None);")]
         /// ```
         #[stable(feature = "rust1", since = "1.0.0")]
-        #[rustc_const_stable(feature = "const_checked_int_div", since = "1.52.0")]
+        #[rustc_const_stable(feature = "const_checked_int_methods", since = "1.52.0")]
         #[must_use = "this returns the result of the operation, \
                       without modifying the original"]
         #[inline]
@@ -642,7 +641,7 @@ macro_rules! uint_impl {
         #[doc = concat!("assert_eq!(5", stringify!($SelfT), ".checked_rem(0), None);")]
         /// ```
         #[stable(feature = "wrapping", since = "1.7.0")]
-        #[rustc_const_stable(feature = "const_checked_int_div", since = "1.52.0")]
+        #[rustc_const_stable(feature = "const_checked_int_methods", since = "1.52.0")]
         #[must_use = "this returns the result of the operation, \
                       without modifying the original"]
         #[inline]
@@ -689,7 +688,7 @@ macro_rules! uint_impl {
         ///
         /// # Panics
         ///
-        /// When the number is zero, or if the base is not at least 2;
+        /// When the number is negative, zero, or if the base is not at least 2;
         /// it panics in debug mode and the return value is 0 in release mode.
         ///
         /// # Examples
@@ -722,7 +721,7 @@ macro_rules! uint_impl {
         ///
         /// # Panics
         ///
-        /// When the number is zero it panics in debug mode and
+        /// When the number is negative or zero it panics in debug mode and
         /// the return value is 0 in release mode.
         ///
         /// # Examples
@@ -755,7 +754,7 @@ macro_rules! uint_impl {
         ///
         /// # Panics
         ///
-        /// When the number is zero it panics in debug mode and the
+        /// When the number is negative or zero it panics in debug mode and the
         /// return value is 0 in release mode.
         ///
         /// # Example
@@ -840,10 +839,12 @@ macro_rules! uint_impl {
                       without modifying the original"]
         #[inline]
         pub const fn checked_log2(self) -> Option<u32> {
-            if let Some(x) = <$NonZeroT>::new(self) {
-                Some(x.log2())
-            } else {
+            if self <= 0 {
                 None
+            } else {
+                // SAFETY: We just checked that this number is positive
+                let log = (Self::BITS - 1) - unsafe { intrinsics::ctlz_nonzero(self) as u32 };
+                Some(log)
             }
         }
 
@@ -862,11 +863,7 @@ macro_rules! uint_impl {
                       without modifying the original"]
         #[inline]
         pub const fn checked_log10(self) -> Option<u32> {
-            if let Some(x) = <$NonZeroT>::new(self) {
-                Some(x.log10())
-            } else {
-                None
-            }
+            int_log10::$ActualT(self as $ActualT)
         }
 
         /// Checked negation. Computes `-self`, returning `None` unless `self ==
@@ -1132,7 +1129,6 @@ macro_rules! uint_impl {
         ///
         /// ```
         #[stable(feature = "saturating_div", since = "1.58.0")]
-        #[rustc_const_stable(feature = "saturating_div", since = "1.58.0")]
         #[must_use = "this returns the result of the operation, \
                       without modifying the original"]
         #[inline]
@@ -1635,11 +1631,11 @@ macro_rules! uint_impl {
         /// Basic usage:
         ///
         /// ```
+        /// #![feature(int_abs_diff)]
         #[doc = concat!("assert_eq!(100", stringify!($SelfT), ".abs_diff(80), 20", stringify!($SelfT), ");")]
         #[doc = concat!("assert_eq!(100", stringify!($SelfT), ".abs_diff(110), 10", stringify!($SelfT), ");")]
         /// ```
-        #[stable(feature = "int_abs_diff", since = "1.60.0")]
-        #[rustc_const_stable(feature = "int_abs_diff", since = "1.60.0")]
+        #[unstable(feature = "int_abs_diff", issue = "89492")]
         #[must_use = "this returns the result of the operation, \
                       without modifying the original"]
         #[inline]
@@ -2020,7 +2016,7 @@ macro_rules! uint_impl {
         ///
         /// # Panics
         ///
-        /// This function will panic if `rhs` is zero.
+        /// This function will panic if `rhs` is 0.
         ///
         /// # Examples
         ///
@@ -2034,6 +2030,7 @@ macro_rules! uint_impl {
         #[must_use = "this returns the result of the operation, \
                       without modifying the original"]
         #[inline(always)]
+        #[rustc_inherit_overflow_checks]
         pub const fn div_floor(self, rhs: Self) -> Self {
             self / rhs
         }
@@ -2042,12 +2039,7 @@ macro_rules! uint_impl {
         ///
         /// # Panics
         ///
-        /// This function will panic if `rhs` is zero.
-        ///
-        /// ## Overflow behavior
-        ///
-        /// On overflow, this function will panic if overflow checks are enabled (default in debug
-        /// mode) and wrap if overflow checks are disabled (default in release mode).
+        /// This function will panic if `rhs` is 0.
         ///
         /// # Examples
         ///
@@ -2077,12 +2069,7 @@ macro_rules! uint_impl {
         ///
         /// # Panics
         ///
-        /// This function will panic if `rhs` is zero.
-        ///
-        /// ## Overflow behavior
-        ///
-        /// On overflow, this function will panic if overflow checks are enabled (default in debug
-        /// mode) and wrap if overflow checks are disabled (default in release mode).
+        /// This function will panic if `rhs` is 0 or the operation results in overflow.
         ///
         /// # Examples
         ///
@@ -2106,7 +2093,7 @@ macro_rules! uint_impl {
         }
 
         /// Calculates the smallest value greater than or equal to `self` that
-        /// is a multiple of `rhs`. Returns `None` if `rhs` is zero or the
+        /// is a multiple of `rhs`. Returns `None` is `rhs` is zero or the
         /// operation would result in overflow.
         ///
         /// # Examples
@@ -2124,11 +2111,11 @@ macro_rules! uint_impl {
         #[must_use = "this returns the result of the operation, \
                       without modifying the original"]
         #[inline]
+        #[rustc_inherit_overflow_checks]
         pub const fn checked_next_multiple_of(self, rhs: Self) -> Option<Self> {
             match try_opt!(self.checked_rem(rhs)) {
                 0 => Some(self),
-                // rhs - r cannot overflow because r is smaller than rhs
-                r => self.checked_add(rhs - r)
+                r => self.checked_add(try_opt!(rhs.checked_sub(r)))
             }
         }
 
@@ -2234,7 +2221,6 @@ macro_rules! uint_impl {
         #[doc = concat!("assert_eq!(3", stringify!($SelfT), ".wrapping_next_power_of_two(), 4);")]
         #[doc = concat!("assert_eq!(", stringify!($SelfT), "::MAX.wrapping_next_power_of_two(), 0);")]
         /// ```
-        #[inline]
         #[unstable(feature = "wrapping_next_power_of_two", issue = "32463",
                    reason = "needs decision on wrapping behaviour")]
         #[rustc_const_unstable(feature = "wrapping_next_power_of_two", issue = "32463")]
@@ -2337,6 +2323,8 @@ macro_rules! uint_impl {
         /// When starting from a slice rather than an array, fallible conversion APIs can be used:
         ///
         /// ```
+        /// use std::convert::TryInto;
+        ///
         #[doc = concat!("fn read_be_", stringify!($SelfT), "(input: &mut &[u8]) -> ", stringify!($SelfT), " {")]
         #[doc = concat!("    let (int_bytes, rest) = input.split_at(std::mem::size_of::<", stringify!($SelfT), ">());")]
         ///     *input = rest;
@@ -2366,6 +2354,8 @@ macro_rules! uint_impl {
         /// When starting from a slice rather than an array, fallible conversion APIs can be used:
         ///
         /// ```
+        /// use std::convert::TryInto;
+        ///
         #[doc = concat!("fn read_le_", stringify!($SelfT), "(input: &mut &[u8]) -> ", stringify!($SelfT), " {")]
         #[doc = concat!("    let (int_bytes, rest) = input.split_at(std::mem::size_of::<", stringify!($SelfT), ">());")]
         ///     *input = rest;
@@ -2406,6 +2396,8 @@ macro_rules! uint_impl {
         /// When starting from a slice rather than an array, fallible conversion APIs can be used:
         ///
         /// ```
+        /// use std::convert::TryInto;
+        ///
         #[doc = concat!("fn read_ne_", stringify!($SelfT), "(input: &mut &[u8]) -> ", stringify!($SelfT), " {")]
         #[doc = concat!("    let (int_bytes, rest) = input.split_at(std::mem::size_of::<", stringify!($SelfT), ">());")]
         ///     *input = rest;
@@ -2431,7 +2423,7 @@ macro_rules! uint_impl {
         #[rustc_promotable]
         #[inline(always)]
         #[rustc_const_stable(feature = "const_max_value", since = "1.32.0")]
-        #[deprecated(since = "TBD", note = "replaced by the `MIN` associated constant on this type")]
+        #[rustc_deprecated(since = "TBD", reason = "replaced by the `MIN` associated constant on this type")]
         pub const fn min_value() -> Self { Self::MIN }
 
         /// New code should prefer to use
@@ -2442,7 +2434,7 @@ macro_rules! uint_impl {
         #[rustc_promotable]
         #[inline(always)]
         #[rustc_const_stable(feature = "const_max_value", since = "1.32.0")]
-        #[deprecated(since = "TBD", note = "replaced by the `MAX` associated constant on this type")]
+        #[rustc_deprecated(since = "TBD", reason = "replaced by the `MAX` associated constant on this type")]
         pub const fn max_value() -> Self { Self::MAX }
     }
 }

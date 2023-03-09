@@ -1,8 +1,5 @@
-use core::cmp;
 use core::iter::TrustedLen;
-use core::ptr;
-
-use crate::raw_vec::RawVec;
+use core::ptr::{self};
 
 use super::{SpecExtend, Vec};
 
@@ -27,11 +24,8 @@ where
             None => return Vec::new(),
             Some(element) => {
                 let (lower, _) = iterator.size_hint();
-                let initial_capacity =
-                    cmp::max(RawVec::<T>::MIN_NON_ZERO_CAP, lower.saturating_add(1));
-                let mut vector = Vec::with_capacity(initial_capacity);
+                let mut vector = Vec::with_capacity(lower.saturating_add(1));
                 unsafe {
-                    // SAFETY: We requested capacity at least 1
                     ptr::write(vector.as_mut_ptr(), element);
                     vector.set_len(1);
                 }

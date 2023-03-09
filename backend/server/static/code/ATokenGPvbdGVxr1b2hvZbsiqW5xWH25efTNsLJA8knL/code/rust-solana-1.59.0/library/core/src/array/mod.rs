@@ -66,6 +66,8 @@ where
 ///
 /// ```rust
 /// #![feature(array_from_fn)]
+/// # // Apparently these doc tests are still on edition2018
+/// # use std::convert::TryInto;
 ///
 /// let array: Result<[u8; 5], _> = std::array::try_from_fn(|i| i.try_into());
 /// assert_eq!(array, Ok([0, 1, 2, 3, 4]));
@@ -276,10 +278,9 @@ impl<'a, T, const N: usize> IntoIterator for &'a mut [T; N] {
 }
 
 #[stable(feature = "index_trait_on_arrays", since = "1.50.0")]
-#[rustc_const_unstable(feature = "const_slice_index", issue = "none")]
-impl<T, I, const N: usize> const Index<I> for [T; N]
+impl<T, I, const N: usize> Index<I> for [T; N]
 where
-    [T]: ~const Index<I>,
+    [T]: Index<I>,
 {
     type Output = <[T] as Index<I>>::Output;
 
@@ -290,10 +291,9 @@ where
 }
 
 #[stable(feature = "index_trait_on_arrays", since = "1.50.0")]
-#[rustc_const_unstable(feature = "const_slice_index", issue = "none")]
-impl<T, I, const N: usize> const IndexMut<I> for [T; N]
+impl<T, I, const N: usize> IndexMut<I> for [T; N]
 where
-    [T]: ~const IndexMut<I>,
+    [T]: IndexMut<I>,
 {
     #[inline]
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
@@ -395,6 +395,7 @@ macro_rules! array_impl_default {
 
 array_impl_default! {32, T T T T T T T T T T T T T T T T T T T T T T T T T T T T T T T T}
 
+#[lang = "array"]
 impl<T, const N: usize> [T; N] {
     /// Returns an array of the same size as `self`, with function `f` applied to each element
     /// in order.
@@ -513,7 +514,6 @@ impl<T, const N: usize> [T; N] {
 
     /// Returns a slice containing the entire array. Equivalent to `&s[..]`.
     #[stable(feature = "array_as_slice", since = "1.57.0")]
-    #[rustc_const_stable(feature = "array_as_slice", since = "1.57.0")]
     pub const fn as_slice(&self) -> &[T] {
         self
     }

@@ -85,12 +85,6 @@ use crate::time::SystemTime;
 /// by different processes. Avoid assuming that holding a `&File` means that the
 /// file will not change.
 ///
-/// # Platform-specific behavior
-///
-/// On Windows, the implementation of [`Read`] and [`Write`] traits for `File`
-/// perform synchronous I/O operations. Therefore the underlying file must not
-/// have been opened for asynchronous I/O (e.g. by using `FILE_FLAG_OVERLAPPED`).
-///
 /// [`BufReader<R>`]: io::BufReader
 /// [`sync_all`]: File::sync_all
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -132,16 +126,6 @@ pub struct ReadDir(fs_imp::ReadDir);
 /// An instance of `DirEntry` represents an entry inside of a directory on the
 /// filesystem. Each entry can be inspected via methods to learn about the full
 /// path or possibly other metadata through per-platform extension traits.
-///
-/// # Platform-specific behavior
-///
-/// On Unix, the `DirEntry` struct contains an internal reference to the open
-/// directory. Holding `DirEntry` objects will consume a file handle even
-/// after the `ReadDir` iterator is dropped.
-///
-/// Note that this [may change in the future][changes].
-///
-/// [changes]: io#platform-specific-behavior
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct DirEntry(fs_imp::DirEntry);
 
@@ -372,10 +356,9 @@ impl File {
     /// open or create a file with specific options if `open()` or `create()`
     /// are not appropriate.
     ///
-    /// It is equivalent to `OpenOptions::new()`, but allows you to write more
-    /// readable code. Instead of
-    /// `OpenOptions::new().append(true).open("example.log")`,
-    /// you can write `File::options().append(true).open("example.log")`. This
+    /// It is equivalent to `OpenOptions::new()` but allows you to write more
+    /// readable code. Instead of `OpenOptions::new().read(true).open("foo.txt")`
+    /// you can write `File::options().read(true).open("foo.txt")`. This
     /// also avoids the need to import `OpenOptions`.
     ///
     /// See the [`OpenOptions::new`] function for more details.
@@ -386,7 +369,7 @@ impl File {
     /// use std::fs::File;
     ///
     /// fn main() -> std::io::Result<()> {
-    ///     let mut f = File::options().append(true).open("example.log")?;
+    ///     let mut f = File::options().read(true).open("foo.txt")?;
     ///     Ok(())
     /// }
     /// ```
@@ -1066,7 +1049,7 @@ impl Metadata {
     ///
     /// fn main() -> std::io::Result<()> {
     ///     let link_path = Path::new("link");
-    ///     symlink("/origin_does_not_exist/", link_path)?;
+    ///     symlink("/origin_does_not_exists/", link_path)?;
     ///
     ///     let metadata = fs::symlink_metadata(link_path)?;
     ///
@@ -1139,7 +1122,7 @@ impl Metadata {
     ///     let metadata = fs::metadata("foo.txt")?;
     ///
     ///     if let Ok(time) = metadata.modified() {
-    ///         println!("{time:?}");
+    ///         println!("{:?}", time);
     ///     } else {
     ///         println!("Not supported on this platform");
     ///     }
@@ -1174,7 +1157,7 @@ impl Metadata {
     ///     let metadata = fs::metadata("foo.txt")?;
     ///
     ///     if let Ok(time) = metadata.accessed() {
-    ///         println!("{time:?}");
+    ///         println!("{:?}", time);
     ///     } else {
     ///         println!("Not supported on this platform");
     ///     }
@@ -1206,7 +1189,7 @@ impl Metadata {
     ///     let metadata = fs::metadata("foo.txt")?;
     ///
     ///     if let Ok(time) = metadata.created() {
-    ///         println!("{time:?}");
+    ///         println!("{:?}", time);
     ///     } else {
     ///         println!("Not supported on this platform or filesystem");
     ///     }
@@ -1745,17 +1728,11 @@ pub fn rename<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> io::Result<()> 
 /// This function currently corresponds to the `open` function in Unix
 /// with `O_RDONLY` for `from` and `O_WRONLY`, `O_CREAT`, and `O_TRUNC` for `to`.
 /// `O_CLOEXEC` is set for returned file descriptors.
-///
-/// On Linux (including Android), this function attempts to use `copy_file_range(2)`,
-/// and falls back to reading and writing if that is not possible.
-///
 /// On Windows, this function currently corresponds to `CopyFileEx`. Alternate
 /// NTFS streams are copied but only the size of the main stream is returned by
-/// this function.
-///
-/// On MacOS, this function corresponds to `fclonefileat` and `fcopyfile`.
-///
-/// Note that platform-specific behavior [may change in the future][changes].
+/// this function. On MacOS, this function corresponds to `fclonefileat` and
+/// `fcopyfile`.
+/// Note that, this [may change in the future][changes].
 ///
 /// [changes]: io#platform-specific-behavior
 ///
@@ -1851,10 +1828,10 @@ pub fn hard_link<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Re
 /// }
 /// ```
 #[stable(feature = "rust1", since = "1.0.0")]
-#[deprecated(
+#[rustc_deprecated(
     since = "1.1.0",
-    note = "replaced with std::os::unix::fs::symlink and \
-            std::os::windows::fs::{symlink_file, symlink_dir}"
+    reason = "replaced with std::os::unix::fs::symlink and \
+              std::os::windows::fs::{symlink_file, symlink_dir}"
 )]
 pub fn soft_link<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Result<()> {
     fs_imp::symlink(original.as_ref(), link.as_ref())
@@ -1930,8 +1907,6 @@ pub fn read_link<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
 ///     Ok(())
 /// }
 /// ```
-#[doc(alias = "realpath")]
-#[doc(alias = "GetFinalPathNameByHandle")]
 #[stable(feature = "fs_canonicalize", since = "1.5.0")]
 pub fn canonicalize<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
     fs_imp::canonicalize(path.as_ref())
@@ -2068,15 +2043,14 @@ pub fn remove_dir<P: AsRef<Path>>(path: P) -> io::Result<()> {
 ///
 /// This function currently corresponds to `openat`, `fdopendir`, `unlinkat` and `lstat` functions
 /// on Unix (except for macOS before version 10.10 and REDOX) and the `CreateFileW`,
-/// `GetFileInformationByHandleEx`, `SetFileInformationByHandle`, and `NtCreateFile` functions on
+/// `GetFileInformationByHandleEx`, `SetFileInformationByHandle`, and `NtOpenFile` functions on
 /// Windows. Note that, this [may change in the future][changes].
 ///
 /// [changes]: io#platform-specific-behavior
 ///
-/// On macOS before version 10.10 and REDOX, as well as when running in Miri for any target, this
-/// function is not protected against time-of-check to time-of-use (TOCTOU) race conditions, and
-/// should not be used in security-sensitive code on those platforms. All other platforms are
-/// protected.
+/// On macOS before version 10.10 and REDOX this function is not protected against time-of-check to
+/// time-of-use (TOCTOU) race conditions, and should not be used in security-sensitive code on
+/// those platforms. All other platforms are protected.
 ///
 /// # Errors
 ///
@@ -2288,9 +2262,9 @@ impl DirBuilder {
         match path.parent() {
             Some(p) => self.create_dir_all(p)?,
             None => {
-                return Err(io::const_io_error!(
+                return Err(io::Error::new_const(
                     io::ErrorKind::Uncategorized,
-                    "failed to create whole tree",
+                    &"failed to create whole tree",
                 ));
             }
         }
@@ -2313,7 +2287,7 @@ impl AsInnerMut<fs_imp::DirBuilder> for DirBuilder {
 /// This function will traverse symbolic links to query information about the
 /// destination file. In case of broken symbolic links this will return `Ok(false)`.
 ///
-/// As opposed to the [`Path::exists`] method, this one doesn't silently ignore errors
+/// As opposed to the `exists()` method, this one doesn't silently ignore errors
 /// unrelated to the path not existing. (E.g. it will return `Err(_)` in case of permission
 /// denied on some of the parent directories.)
 ///
@@ -2326,8 +2300,6 @@ impl AsInnerMut<fs_imp::DirBuilder> for DirBuilder {
 /// assert!(!fs::try_exists("does_not_exist.txt").expect("Can't check existence of file does_not_exist.txt"));
 /// assert!(fs::try_exists("/root/secret_file.txt").is_err());
 /// ```
-///
-/// [`Path::exists`]: crate::path::Path::exists
 // FIXME: stabilization should modify documentation of `exists()` to recommend this method
 // instead.
 #[unstable(feature = "path_try_exists", issue = "83186")]

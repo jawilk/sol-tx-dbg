@@ -12,6 +12,7 @@
 
       <b>ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL</b><br />
       <b>TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA</b><br /><br />
+      <b>Please note:</b> Since we use the current on-chain state for all accounts, it is possible that previously successful transactions may now fail.
     </p>
   </div>
 </template>

@@ -14,7 +14,10 @@ use crate::ptr;
 ///
 /// See: <https://131002.net/siphash>
 #[unstable(feature = "hashmap_internals", issue = "none")]
-#[deprecated(since = "1.13.0", note = "use `std::collections::hash_map::DefaultHasher` instead")]
+#[rustc_deprecated(
+    since = "1.13.0",
+    reason = "use `std::collections::hash_map::DefaultHasher` instead"
+)]
 #[derive(Debug, Clone, Default)]
 #[doc(hidden)]
 pub struct SipHasher13 {
@@ -25,7 +28,10 @@ pub struct SipHasher13 {
 ///
 /// See: <https://131002.net/siphash/>
 #[unstable(feature = "hashmap_internals", issue = "none")]
-#[deprecated(since = "1.13.0", note = "use `std::collections::hash_map::DefaultHasher` instead")]
+#[rustc_deprecated(
+    since = "1.13.0",
+    reason = "use `std::collections::hash_map::DefaultHasher` instead"
+)]
 #[derive(Debug, Clone, Default)]
 struct SipHasher24 {
     hasher: Hasher<Sip24Rounds>,
@@ -44,7 +50,10 @@ struct SipHasher24 {
 /// it is not intended for cryptographic purposes. As such, all
 /// cryptographic uses of this implementation are _strongly discouraged_.
 #[stable(feature = "rust1", since = "1.0.0")]
-#[deprecated(since = "1.13.0", note = "use `std::collections::hash_map::DefaultHasher` instead")]
+#[rustc_deprecated(
+    since = "1.13.0",
+    reason = "use `std::collections::hash_map::DefaultHasher` instead"
+)]
 #[derive(Debug, Clone, Default)]
 pub struct SipHasher(SipHasher24);
 
@@ -144,9 +153,9 @@ impl SipHasher {
     /// Creates a new `SipHasher` with the two initial keys set to 0.
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
-    #[deprecated(
+    #[rustc_deprecated(
         since = "1.13.0",
-        note = "use `std::collections::hash_map::DefaultHasher` instead"
+        reason = "use `std::collections::hash_map::DefaultHasher` instead"
     )]
     #[must_use]
     pub fn new() -> SipHasher {
@@ -156,9 +165,9 @@ impl SipHasher {
     /// Creates a `SipHasher` that is keyed off the provided keys.
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
-    #[deprecated(
+    #[rustc_deprecated(
         since = "1.13.0",
-        note = "use `std::collections::hash_map::DefaultHasher` instead"
+        reason = "use `std::collections::hash_map::DefaultHasher` instead"
     )]
     #[must_use]
     pub fn new_with_keys(key0: u64, key1: u64) -> SipHasher {
@@ -170,9 +179,9 @@ impl SipHasher13 {
     /// Creates a new `SipHasher13` with the two initial keys set to 0.
     #[inline]
     #[unstable(feature = "hashmap_internals", issue = "none")]
-    #[deprecated(
+    #[rustc_deprecated(
         since = "1.13.0",
-        note = "use `std::collections::hash_map::DefaultHasher` instead"
+        reason = "use `std::collections::hash_map::DefaultHasher` instead"
     )]
     pub fn new() -> SipHasher13 {
         SipHasher13::new_with_keys(0, 0)
@@ -181,9 +190,9 @@ impl SipHasher13 {
     /// Creates a `SipHasher13` that is keyed off the provided keys.
     #[inline]
     #[unstable(feature = "hashmap_internals", issue = "none")]
-    #[deprecated(
+    #[rustc_deprecated(
         since = "1.13.0",
-        note = "use `std::collections::hash_map::DefaultHasher` instead"
+        reason = "use `std::collections::hash_map::DefaultHasher` instead"
     )]
     pub fn new_with_keys(key0: u64, key1: u64) -> SipHasher13 {
         SipHasher13 { hasher: Hasher::new_with_keys(key0, key1) }
@@ -225,11 +234,6 @@ impl super::Hasher for SipHasher {
     }
 
     #[inline]
-    fn write_str(&mut self, s: &str) {
-        self.0.hasher.write_str(s);
-    }
-
-    #[inline]
     fn finish(&self) -> u64 {
         self.0.hasher.finish()
     }
@@ -240,11 +244,6 @@ impl super::Hasher for SipHasher13 {
     #[inline]
     fn write(&mut self, msg: &[u8]) {
         self.hasher.write(msg)
-    }
-
-    #[inline]
-    fn write_str(&mut self, s: &str) {
-        self.hasher.write_str(s);
     }
 
     #[inline]
@@ -306,14 +305,6 @@ impl<S: Sip> super::Hasher for Hasher<S> {
         // definition equal to `msg.len()`.
         self.tail = unsafe { u8to64_le(msg, i, left) };
         self.ntail = left;
-    }
-
-    #[inline]
-    fn write_str(&mut self, s: &str) {
-        // This hasher works byte-wise, and `0xFF` cannot show up in a `str`,
-        // so just hashing the one extra byte is enough to be prefix-free.
-        self.write(s.as_bytes());
-        self.write_u8(0xFF);
     }
 
     #[inline]

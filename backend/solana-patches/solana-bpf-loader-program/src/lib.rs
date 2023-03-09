@@ -73,8 +73,8 @@ solana_sdk::declare_builtin!(
 use std::sync::atomic::{AtomicU16, Ordering};
 
 // TODO: unify this in one place
-const SUPPORTED_PROGRAMS: [&str; 2] =
-    ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"];
+const SUPPORTED_PROGRAMS: [&str; 3] =
+    ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi"];
 static PORT: AtomicU16 = AtomicU16::new(0);
 
 pub fn set_port(port: u16) {
@@ -160,6 +160,9 @@ pub fn create_executor(
     reject_deployment_of_broken_elfs: bool,
     disable_deploy_of_alloc_free_syscall: bool,
 ) -> Result<Arc<BpfExecutor>, InstructionError> {
+
+    println!("\nCREATE_EXECUTOR !!!!");
+
     let mut register_syscalls_time = Measure::start("register_syscalls_time");
     let register_syscall_result =
         syscalls::register_syscalls(invoke_context, disable_deploy_of_alloc_free_syscall);
@@ -175,7 +178,7 @@ pub fn create_executor(
     let compute_budget = invoke_context.get_compute_budget();
     let config = Config {
         max_call_depth: compute_budget.max_call_depth,
-        stack_frame_size: compute_budget.stack_frame_size,
+        stack_frame_size: 32768,//compute_budget.stack_frame_size,
         enable_stack_frame_gaps: true,
         instruction_meter_checkpoint_distance: 10000,
         enable_instruction_meter: true,

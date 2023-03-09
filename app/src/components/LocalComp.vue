@@ -46,7 +46,6 @@
     justify-content: center;
     align-items: center;
     z-index: 15;
-
   }
   
   .popup-content {

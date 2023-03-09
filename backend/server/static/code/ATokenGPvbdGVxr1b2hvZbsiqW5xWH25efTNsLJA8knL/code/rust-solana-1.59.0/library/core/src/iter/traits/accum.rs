@@ -167,7 +167,7 @@ where
     where
         I: Iterator<Item = Result<U, E>>,
     {
-        iter::try_process(iter, |i| i.sum())
+        iter::process_results(iter, |i| i.sum())
     }
 }
 
@@ -183,7 +183,7 @@ where
     where
         I: Iterator<Item = Result<U, E>>,
     {
-        iter::try_process(iter, |i| i.product())
+        iter::process_results(iter, |i| i.product())
     }
 }
 
@@ -210,7 +210,7 @@ where
     where
         I: Iterator<Item = Option<U>>,
     {
-        iter::try_process(iter, |i| i.sum())
+        iter.map(|x| x.ok_or(())).sum::<Result<_, _>>().ok()
     }
 }
 
@@ -226,6 +226,6 @@ where
     where
         I: Iterator<Item = Option<U>>,
     {
-        iter::try_process(iter, |i| i.product())
+        iter.map(|x| x.ok_or(())).product::<Result<_, _>>().ok()
     }
 }

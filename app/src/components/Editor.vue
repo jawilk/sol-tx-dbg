@@ -3,11 +3,7 @@
     class="editor"
     ref="cm"
     v-model="code"
-    placeholder="Code goes here..."
     :style="{ height: '100%', width: '100%' }"
-    :autofocus="true"
-    :indent-with-tab="true"
-    :tab-size="2"
     :extensions="extensions"
     @ready="handleReady"
     @change="log('change', $event)"
@@ -102,6 +98,8 @@ export default {
     return {
       curFile: "",
       prevBreakpointsEditor: [],
+      // Hack to not scroll to top of doc on first gutter click
+      is_first_breakpoint: true,
     };
   },
   methods: {
@@ -129,21 +127,36 @@ export default {
       }
     },
     toggleBreakpoint(pos) {
+      console.log("is_first_breakpoint", this.is_first_breakpoint);
       let breakpoints = this.view.state.field(breakpointState);
       let hasBreakpoint = false;
       breakpoints.between(pos, pos, () => {
         hasBreakpoint = true;
       });
-      const effects = [breakpointEffect.of({ pos, on: !hasBreakpoint })];
+      let effects;
+      if (this.is_first_breakpoint) {
+        this.is_first_breakpoint = false;
+        effects = [
+          breakpointEffect.of({ pos, on: !hasBreakpoint }),
+          EditorView.scrollIntoView(pos, {
+            y: "center",
+          }),
+        ];
+      } else {
+        effects = [breakpointEffect.of({ pos, on: !hasBreakpoint })];
+      }
       this.view.dispatch(
         this.getCodemirrorStates().state.update({
           effects: effects,
         })
-        // {scrollIntoView: 'always'},
       );
     },
     handleBreakpoints() {
-      console.log("breakpointsEditor!", this.editorState.breakpoints, this.prevBreakpointsEditor);
+      console.log(
+        "breakpointsEditor!",
+        this.editorState.breakpoints,
+        this.prevBreakpointsEditor
+      );
       if (this.editorState.breakpoints === undefined) {
         return;
       }
@@ -166,11 +179,11 @@ export default {
           (item) => !this.editorState.breakpoints.includes(item)
         ),
       ];
+      console.log("difference", difference);
       difference.forEach((l) => {
         const docPosition = this.view.state.doc.line(l).from;
         this.toggleBreakpoint(docPosition);
       });
-      console.log("difference", difference);
 
       this.prevBreakpointsEditor = JSON.parse(
         JSON.stringify(this.editorState.breakpoints)
@@ -181,6 +194,7 @@ export default {
     editorState() {
       console.log("(editor) file WATCHER", this.editorState, this.curFile);
       if (this.editorState.file !== this.curFile) {
+        this.curFile = this.editorState.file;
         this.prevBreakpointsEditor = [];
         console.log("(editor) NEW FILE", this.editorState);
         this.parseFile(
@@ -208,18 +222,22 @@ export default {
             if (this.editorState.line !== undefined) {
               this.highlightLine(this.editorState.line);
             }
+            this.is_first_breakpoint = true;
           });
       } else {
-        console.log("(editor) ELSE No NEW FILE", this.editorState);
-
+        console.log("(editor) ELSE Not NEW FILE", this.editorState);
         if (this.editorState.breakpoints !== undefined) {
+          console.log("DO breakpotns");
           this.handleBreakpoints();
         }
-        if (this.editorState.updateType !== "breakpoints" && this.editorState.line !== undefined) {
+        if (
+          this.editorState.updateType !== "breakpoints" &&
+          this.editorState.line !== undefined
+        ) {
+          console.log("DO highlightLine", this.editorState.line);
           this.highlightLine(this.editorState.line);
         }
       }
-      this.curFile = this.editorState.file;
     },
   },
   setup(props, context) {
@@ -236,32 +254,25 @@ export default {
               "",
               view.state.doc.lineAt(line.from).number
             );
-            //return true;
+            return true;
           },
         },
       }),
       EditorView.baseTheme({
         ".cm-breakpoint-gutter .cm-gutterElement": {
           color: "red",
-          cursor: "pointer",
           paddingLeft: "5px",
         },
-        // ".cm-gutterElement:hover": {
-        //   color: "red",
-        // },
+        ".cm-breakpoint-gutter": {
+          cursor: "pointer",
+        },
       }),
     ];
     // Codemirror EditorView instance ref
     const view = shallowRef();
     const handleReady = (payload) => {
       view.value = payload.view;
-      // payload.on("gutterClick", handleGutterClick);
     };
-
-    // function handleGutterClick(instance, line, gutter, clickEvent) {
-    //   // Your gutter click event handling logic goes here
-    //   console.log("breakpointevent2", line, gutter, clickEvent);
-    // }
 
     const code = ref(" ");
     const extensions = [
@@ -275,13 +286,7 @@ export default {
     // Status is available at all times via Codemirror EditorView
     const getCodemirrorStates = () => {
       const state = view.value.state;
-      // const ranges = state.selection.ranges
-      // const selected = ranges.reduce((r, range) => r + range.to - range.from, 0)
-      // const cursor = ranges[0].anchor
-      // const length = state.doc.length
       const doc = state.doc;
-      // more state info ...
-      // return ...
       return {
         state,
         doc,
