@@ -27,8 +27,8 @@ use serde_json::from_reader;
 use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcTransactionConfig;
 use solana_sdk::commitment_config::CommitmentConfig;
-use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
+use solana_transaction_status::option_serializer::OptionSerializer;
 use solana_transaction_status::EncodedTransaction;
 use solana_transaction_status::UiTransactionEncoding;
 
@@ -137,70 +137,71 @@ fn load_tx(tx_hash_str: &str) -> anyhow::Result<Vec<Vec<String>>> {
             let now = Instant::now();
             let tx = loop {
                 match rpc_client.get_transaction_with_config(&tx_hash, config) {
-                    Ok(tx) => break tx.transaction.transaction,
+                    Ok(tx) => break tx.transaction,
                     _ => thread::sleep(time::Duration::from_secs(1)),
                 }
                 if now.elapsed().as_secs() > 5 {
                     return Err(anyhow!("Couldn't fetch transaction"));
                 }
             };
-            match tx {
+            // Save tx to disk
+            match tx.transaction {
                 EncodedTransaction::Json(tx) => {
                     let data = serde_json::to_vec(&tx).unwrap();
                     let mut file =
                         File::create(format!("../cache/transactions/{tx_hash_str}.json")).unwrap();
                     // Save whole tx
                     file.write_all(&data).unwrap();
-                    match tx.message {
-                        solana_transaction_status::UiMessage::Raw(message) => {
-                            println!("msg: {:?}", message);
-                            // Save all programs used in an instruction separately
-                            let mut tx_programs = vec![];
-                            for (inst_nr, inst) in message.instructions.iter().enumerate() {
-                                let mut inst_programs = vec![];
-                                for account_index in inst.accounts.iter() {
-                                    let account = &message.account_keys[*account_index as usize];
-                                    let account_info =
-                                        rpc_client.get_account(&Pubkey::from_str(account).unwrap());
-
-                                    if let Ok(account_info) = account_info {
-                                        if account_info.executable
-                                            && !inst_programs.contains(&account.to_string())
-                                        {
-                                            inst_programs.push(account.to_string());
-                                        }
-                                    };
-                                }
-                                let program_id =
-                                    message.account_keys[inst.program_id_index as usize].clone();
-                                // Last program is always the main one
-                                inst_programs.push(program_id.to_string());
-                                let path =
-                                    format!("../cache/instructions/{tx_hash_str}/{inst_nr}.txt");
-                                let parent_dir = std::path::Path::new(&path).parent().unwrap();
-                                create_dir_all(parent_dir)?;
-                                let mut file = File::create(path)?;
-                                for program in inst_programs.iter() {
-                                    writeln!(file, "{}", program).unwrap();
-                                }
-                                tx_programs.push(inst_programs);
-                            }
-                            Ok(tx_programs)
-                        }
-                        _ => return Err(anyhow!("Parsing message failed.")),
-                    }
                 }
                 _ => return Err(anyhow!("EncodedTransaction parse failed")),
+            }
+            let meta = tx.meta.unwrap();
+            // Save all cpi programs per instruction to disk
+            match meta.log_messages {
+                OptionSerializer::Some(logs) => {
+                    let mut tx_cpi_programs: Vec<Vec<String>> = vec![];
+                    let mut current_group: Vec<String> = vec![];
+                    for line in logs {
+                        if line.contains("invoke [1]") {
+                            tx_cpi_programs.push(current_group);
+                            current_group = vec![];
+                        }
+                        if line.contains("invoke [") {
+                            current_group.push(
+                                line.split(" invoke ")
+                                    .next()
+                                    .unwrap()
+                                    .split("Program ")
+                                    .last()
+                                    .unwrap()
+                                    .to_string(),
+                            );
+                        }
+                    }
+                    tx_cpi_programs.push(current_group);
+                    tx_cpi_programs.remove(0);
+                    let mut path = format!("../cache/instructions/{tx_hash_str}/0.txt");
+                    let parent_dir = std::path::Path::new(&path).parent().unwrap();
+                    create_dir_all(parent_dir)?;
+                    for (inst_nr, vec) in tx_cpi_programs.iter().enumerate() {
+                        path = format!("../cache/instructions/{tx_hash_str}/{inst_nr}.txt");
+                        let mut file = File::create(path)?;
+                        let content = vec.join("\n");
+                        file.write_all(content.as_bytes()).unwrap();
+                    }
+                    Ok(tx_cpi_programs)
+                }
+                _ => return Err(anyhow!("Parsing message failed.")),
             }
         }
     }
 }
 
 fn get_tx_info(tx_hash_str: &str) -> anyhow::Result<InitResponse> {
-    let tx_programs = load_tx(tx_hash_str).unwrap();
+    let tx_cpi_programs = load_tx(tx_hash_str).unwrap();
     let mut tx_program_metas = vec![];
-    for mut inst_programs in tx_programs {
-        let program_id = inst_programs.pop().unwrap();
+    for mut inst_programs in tx_cpi_programs {
+        let program_id = inst_programs.remove(0);
         let is_supported = SUPPORTED_PROGRAMS.contains_key(&program_id);
         tx_program_metas.push(ProgramMeta {
             name: if is_supported {
@@ -221,7 +222,6 @@ fn get_tx_info(tx_hash_str: &str) -> anyhow::Result<InitResponse> {
 
 #[get("/tx-info/<tx_hash>")]
 fn tx_info(tx_hash: TxHash) -> Result<Value, Status> {
-    println!("hash here: {} {}", tx_hash.0, tx_hash.0.len());
     match get_tx_info(&tx_hash.0) {
         Ok(tx) => Ok(json!(tx)),
         Err(_) => Err(Status::InternalServerError),
