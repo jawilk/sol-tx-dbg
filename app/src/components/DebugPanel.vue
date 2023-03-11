@@ -24,9 +24,10 @@
       >&#8595;</span
     >
     <span
-      class="deactivated"
+      class="button-purple"
       @click="stepOut"
       title="step out"
+      :class="{ deactivated: !isActive }"
       >&#8593;</span
     >
     <span
@@ -49,19 +50,19 @@ export default {
   methods: {
     stepIn() {
       if (!this.isActive) return;
-      this.$emit("stepIn");
+      this.$emit("stepIn", true);
     },
     stepOut() {
       if (!this.isActive) return;
-      this.$emit("stepOut");
+      this.$emit("stepOut", true);
     },
     continue_() {
       if (!this.isActive) return;
-      this.$emit("continue");
+      this.$emit("continue", true);
     },
     next() {
       if (!this.isActive) return;
-      this.$emit("next");
+      this.$emit("next", true);
     },
     restart() {
       if (!this.isActive && !this.isRestart) return;

@@ -456,6 +456,7 @@ export default {
       return lldbOutput;
     },
     async getMemory(address, bytes, is_user) {
+      console.log("getMemory", this.status);
       if (is_user && !this.isActive) {
         return "please wait for the current action to finish or restart";
       }
@@ -503,18 +504,19 @@ export default {
       window.open(url);
       // This will block till cpi has finished
       if (type === "continue") {
-        await this.continue_();
+        await this.continue_(false);
       } else if (type === "next") {
-        await this.next();
+        await this.next(false);
       } else if (type === "stepIn") {
-        await this.stepIn();
+        await this.stepIn(false);
       }
       if (this.status !== "Finished") {
         this.status = "Running";
       }
       console.log("CPI finished");
     },
-    async check_finished() {
+    async check_finished(should_update) {
+      console.log("check_finished", this.status);
       if (this.status === "Finished") {
         return;
       }
@@ -525,7 +527,7 @@ export default {
         [],
         { async: true }
       );
-      if (isFinished === -1) {
+      if (isFinished === -1 && this.status !== "Finished") {
         this.status = "Finished";
         console.log("execution finished");
         const file = "code/sdk/" + this.solana_version + "/src/entrypoint.rs";
@@ -539,13 +541,13 @@ export default {
         }
         return;
       }
-      if (this.status !== "Finished") {
+      if (this.status !== "Finished" && should_update) {
         await this.updateEditor();
       }
       this.isActive = true;
     },
     // Debug Panel
-    async stepIn() {
+    async stepIn(should_update) {
       this.isActive = false;
       console.log("request_stepIn_with_cpi");
       const is_before_cpi = await this.LLDB.ccall(
@@ -556,26 +558,27 @@ export default {
         { async: true }
       );
       // CPI
-      if (is_before_cpi === true) {
+      if (is_before_cpi) {
         await this.handleCpi("stepIn");
       }
-      await this.check_finished();
+      await this.check_finished(should_update);
     },
-    async stepOut() {
+    async stepOut(should_update) {
       this.isActive = false;
       console.log("request_stepOut_with_cpi");
-      let resPtr = await this.LLDB.ccall(
-        "execute_command",
-        "number",
-        ["string"],
-        ["finish"],
-        { async: true }
-      );
-      this.LLDB._free(resPtr);
-      await this.updateEditor();
-      this.isActive = true;
+      const is_before_cpi = await this.LLDB.ccall("request_stepOut", "boolean", [], [], {
+        async: true,
+      });
+      // CPI
+      if (is_before_cpi) {
+        await this.handleCpi("continue");
+        await this.LLDB.ccall("request_stepIn_with_cpi", "boolean", [], [], {
+          async: true,
+        });
+      }
+      await this.check_finished(should_update);
     },
-    async next() {
+    async next(should_update) {
       this.isActive = false;
       console.log("request_next_with_cpi");
       const is_before_cpi = await this.LLDB.ccall(
@@ -585,15 +588,19 @@ export default {
         [],
         { async: true }
       );
+      console.log("is_before_cpi", is_before_cpi);
       // CPI
       if (is_before_cpi === 1) {
         await this.handleCpi("next");
       } else if (is_before_cpi === 2) {
         await this.handleCpi("continue");
+        await this.LLDB.ccall("request_stepIn_with_cpi", "boolean", [], [], {
+          async: true,
+        });
       }
-      await this.check_finished();
+      await this.check_finished(should_update);
     },
-    async continue_() {
+    async continue_(should_update) {
       this.isActive = false;
       console.log("continue");
       const is_before_cpi = await this.LLDB.ccall(
@@ -603,11 +610,13 @@ export default {
         [],
         { async: true }
       );
+      console.log("is_before_cpi (cont)", is_before_cpi);
+
       // CPI
       if (is_before_cpi === true) {
         await this.handleCpi("continue");
       }
-      await this.check_finished();
+      await this.check_finished(should_update);
     },
     // Update
     async LLDBRequest(request, name) {
@@ -772,12 +781,13 @@ export default {
       return fileName;
     },
     getEndLine() {
-      if (this.solana_version === "solana-program-1.9.28") {
-        return 127;
-      } else if (this.solana_version === "solana-program-1.10.33") {
-        return 127;
-      } else if (this.solana_version === "solana-program-1.10.41") {
-        return 127;
+      switch (this.solana_version) {
+        case "solana-program-1.9.28":
+        case "solana-program-1.10.33":
+          return 127;
+        case "solana-program-1.14.9":
+        case "solana-program-1.14.10":
+          return 133;
       }
     },
     // Setup
