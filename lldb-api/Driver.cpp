@@ -14,13 +14,13 @@
 
 #include "lldb/API/SBDebugger.h"
 #include "lldb/API/SBError.h"
+#include "lldb/API/SBProcess.h"
 #include "lldb/API/SBTarget.h"
 #include "lldb/API/SBThread.h"
-#include "lldb/API/SBProcess.h"
 #include "lldb/API/SBValueList.h"
 
-#include "lldb/API/SBStream.h"
 #include "lldb/API/SBDeclaration.h"
+#include "lldb/API/SBStream.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringMap.h"
@@ -28,9 +28,8 @@
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include <string.h>
 #include <iostream>
-
+#include <string.h>
 
 #define PUBKEY_LEN 32
 
@@ -38,28 +37,29 @@ using namespace lldb;
 using namespace lldb_vscode;
 using namespace std;
 
-
-// API calls, these will return values (if any) to the typescript vscode-solana-debug extension
-// EMSCRIPTEN_KEEPALIVE will add to EXPORTED_FUNCTIONS automatically
+// API calls, these will return values (if any) to the typescript
+// vscode-solana-debug extension EMSCRIPTEN_KEEPALIVE will add to
+// EXPORTED_FUNCTIONS automatically
 extern "C" {
-    EMSCRIPTEN_KEEPALIVE const char* execute_command(const char* input);
-    EMSCRIPTEN_KEEPALIVE void create_target(const char* path);
-    EMSCRIPTEN_KEEPALIVE const char* request_variables(char* const json);
-    EMSCRIPTEN_KEEPALIVE const char* request_pubkey(char* const name);
-    EMSCRIPTEN_KEEPALIVE const char* request_scopes(char* const json);
-    EMSCRIPTEN_KEEPALIVE const char* request_setBreakpoints(char* const json);
-    EMSCRIPTEN_KEEPALIVE const char* request_stackTrace(char* const json);
-    EMSCRIPTEN_KEEPALIVE const char* request_source(char* const json);
-    EMSCRIPTEN_KEEPALIVE const char* request_next();
-    EMSCRIPTEN_KEEPALIVE const char* request_stepIn();
-    EMSCRIPTEN_KEEPALIVE const char* request_stepOut();
-    EMSCRIPTEN_KEEPALIVE const char* request_continue();
-    EMSCRIPTEN_KEEPALIVE void request_terminate();
-    EMSCRIPTEN_KEEPALIVE int should_terminate();
-    EMSCRIPTEN_KEEPALIVE bool request_stepIn_with_cpi();
-    EMSCRIPTEN_KEEPALIVE bool request_next_with_cpi();
-    EMSCRIPTEN_KEEPALIVE bool request_continue_with_cpi();
-    EMSCRIPTEN_KEEPALIVE const char* request_cpi_program_id();
+EMSCRIPTEN_KEEPALIVE const char *execute_command(const char *input);
+EMSCRIPTEN_KEEPALIVE void create_target(const char *path);
+EMSCRIPTEN_KEEPALIVE const char *request_variables(char *const json);
+EMSCRIPTEN_KEEPALIVE const char *request_pubkey(char *const name);
+EMSCRIPTEN_KEEPALIVE const char *request_scopes(char *const json);
+EMSCRIPTEN_KEEPALIVE const char *request_setBreakpoints(char *const json);
+EMSCRIPTEN_KEEPALIVE const char *request_stackTrace(char *const json);
+EMSCRIPTEN_KEEPALIVE const char *request_source(char *const json);
+EMSCRIPTEN_KEEPALIVE const char *request_next();
+EMSCRIPTEN_KEEPALIVE const char *request_stepIn();
+EMSCRIPTEN_KEEPALIVE const char *request_stepOut();
+EMSCRIPTEN_KEEPALIVE const char *request_continue();
+EMSCRIPTEN_KEEPALIVE void request_terminate();
+EMSCRIPTEN_KEEPALIVE int should_terminate();
+EMSCRIPTEN_KEEPALIVE bool request_stepIn_with_cpi();
+EMSCRIPTEN_KEEPALIVE int request_next_with_cpi();
+EMSCRIPTEN_KEEPALIVE bool request_continue_with_cpi();
+EMSCRIPTEN_KEEPALIVE const char *request_cpi_program_id();
+EMSCRIPTEN_KEEPALIVE void set_cpi_line(uint32_t line);
 }
 
 class LLDBSentry {
@@ -78,118 +78,152 @@ public:
 static LLDBSentry sentry;
 char PUBKEY[PUBKEY_LEN];
 char CPI_PROGRAM_ID[PUBKEY_LEN];
+uint32_t CPI_LINE;
+bool IS_CPI = false;
 SBError g_error;
 
 int main() {
-    // Create debugger instance
-    g_vsc.debugger = SBDebugger::Create();
-    g_vsc.debugger.SetAsync(false);
+  // Create debugger instance
+  g_vsc.debugger = SBDebugger::Create();
+  g_vsc.debugger.SetAsync(false);
 
-    return 0;
+  return 0;
 }
 
 // API helper (JSON)
 void read_JSON(std::string json, llvm::json::Object &object) {
-    cout << "read_JSON: " << json << "\n";
+  cout << "read_JSON: " << json << "\n";
 
-    llvm::StringRef json_sref(json);
+  llvm::StringRef json_sref(json);
 
-    llvm::Expected<llvm::json::Value> json_value = llvm::json::parse(json_sref);
-    if (!json_value) {
-      cout << "ERROR PARSING JSON: " << json << "\n";
-      auto error = json_value.takeError();
-    }
+  llvm::Expected<llvm::json::Value> json_value = llvm::json::parse(json_sref);
+  if (!json_value) {
+    cout << "ERROR PARSING JSON: " << json << "\n";
+    auto error = json_value.takeError();
+  }
 
-    object = *json_value->getAsObject();
+  object = *json_value->getAsObject();
 }
 
 // Serialize the JSON value into a string.
-const char* build_JSON_str(const llvm::json::Value &json) {
+const char *build_JSON_str(const llvm::json::Value &json) {
   std::string s;
   llvm::raw_string_ostream strm(s);
   strm << json;
-      
+
   // Needs to be free'd
   return strdup(strm.str().c_str());
 }
 
 // API
-const char* execute_command(const char* command) {
-    cout << "execute_command: " << command << "\n";
-    SBCommandReturnObject result;
-    SBCommandInterpreter sb_interpreter = g_vsc.debugger.GetCommandInterpreter();
-    sb_interpreter.HandleCommand(command, result, false);
-    // cout << "OUTPUT LLDB: " << result.GetOutput() << "\n";
+const char *execute_command(const char *command) {
+  cout << "execute_command: " << command << "\n";
+  SBCommandReturnObject result;
+  SBCommandInterpreter sb_interpreter = g_vsc.debugger.GetCommandInterpreter();
+  sb_interpreter.HandleCommand(command, result, false);
+  // cout << "OUTPUT LLDB: " << result.GetOutput() << "\n";
 
-    cout << "execute_command Frame ID: " << g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFrameID() << "\n";
+  cout << "execute_command Frame ID: "
+       << g_vsc.target.GetProcess()
+              .GetSelectedThread()
+              .GetSelectedFrame()
+              .GetFrameID()
+       << "\n";
 
-    return strdup(result.GetOutput());
+  return strdup(result.GetOutput());
 }
 
-void create_target(const char* path) {
-    SBError error;
-    const char *arch = NULL;
-    const char *platform = NULL;
-    const bool add_dependent_libs = false;
-    g_vsc.target = g_vsc.debugger.CreateTarget(path, arch, platform, add_dependent_libs, error);
+void create_target(const char *path) {
+  SBError error;
+  const char *arch = NULL;
+  const char *platform = NULL;
+  const bool add_dependent_libs = false;
+  g_vsc.target = g_vsc.debugger.CreateTarget(path, arch, platform,
+                                             add_dependent_libs, error);
 }
 
 void request_terminate() {
-    g_vsc.debugger.SetAsync(false);
-    g_vsc.target.GetProcess().Kill();
-    g_vsc.debugger.SetAsync(true);
+  g_vsc.debugger.SetAsync(false);
+  g_vsc.target.GetProcess().Kill();
+  g_vsc.debugger.SetAsync(true);
 }
 
 int should_terminate() {
-   if (!g_error.Success()) {
-        execute_command("kill");
-        return -1;
-    }
-    return 0;
+  if (!g_error.Success()) {
+    execute_command("kill");
+    return -1;
+  }
+  return 0;
 }
 
 // TODO
-//void create_symbol_bp(const char* symbol) {
+// void create_symbol_bp(const char* symbol) {
 //    SBBreakpoint bp = g_vsc.target.BreakpointCreateByName(symbol);
 //    cout << bp.GetID() << "\n";
 //}
 
-bool IS_CPI = false;
-bool is_invoke_signed_unchecked() {
-    SBError error;
-    string func_name;
-    uint32_t line;
+void set_cpi_line(uint32_t line) {
+  cout << "set_cpi_line: " << line << "\n";
+  CPI_LINE = line;
+}
 
-    if (g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().IsValid()) {
-      if (g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().IsValid()) {
-        func_name = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunctionName();
-	      if (func_name.find("invoke_signed_unchecked") != std::string::npos) {
-          line = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
-          if (line == 304) {
-              IS_CPI = true;
-              cout << "IS invoke_signed_unchecked\n";
-              return true;
-          }
+bool is_invoke_signed_unchecked() {
+  SBError error;
+  string func_name;
+  uint32_t line;
+
+  if (g_vsc.target.GetProcess()
+          .GetSelectedThread()
+          .GetSelectedFrame()
+          .IsValid()) {
+    if (g_vsc.target.GetProcess()
+            .GetSelectedThread()
+            .GetSelectedFrame()
+            .GetFunction()
+            .IsValid()) {
+      func_name = g_vsc.target.GetProcess()
+                      .GetSelectedThread()
+                      .GetSelectedFrame()
+                      .GetFunctionName();
+      if (func_name.find("invoke_signed_unchecked") != string::npos) {
+        line = g_vsc.target.GetProcess()
+                   .GetSelectedThread()
+                   .GetSelectedFrame()
+                   .GetLineEntry()
+                   .GetLine();
+        if (line == CPI_LINE) {
+          IS_CPI = true;
+          cout << "IS invoke_signed_unchecked\n";
+          return true;
         }
       }
     }
-    return false;
+  }
+  return false;
 }
 
 // bool is_sol_log(string& sol_log_msg) {
-//     if (g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().IsValid()) {
-//         if (g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().IsValid()) {
-//             string func_name = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().GetName();
+//     if
+//     (g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().IsValid())
+//     {
+//         if
+//         (g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().IsValid())
+//         {
+//             string func_name =
+//             g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().GetName();
 // 	    if (func_name.find("sol_log") != std::string::npos) {
-//                 if (g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine() == 100) {
-//                     SBValue var = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().FindVariable("message");
+//                 if
+//                 (g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine()
+//                 == 100) {
+//                     SBValue var =
+//                     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().FindVariable("message");
 //                     SBValue v = var.GetChildAtIndex(0);
 // 	            int length = atoi(var.GetChildAtIndex(1).GetValue());
 //                     sol_log_msg += "sol_log_ -> ";
 //                     sol_log_msg.append(&(v.GetSummary()[1]), length);
 //                     sol_log_msg += "\n\n";
 //                     return true;
-// 		}       
+// 		}
 //   	    }
 //         }
 //     }
@@ -198,77 +232,250 @@ bool is_invoke_signed_unchecked() {
 
 // void till_next_line_next(uint32_t line_before, string& sol_log_msg) {
 //     uint32_t func_start, now;
-//     func_start = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().GetStartAddress().GetLineEntry().GetLine();
-//     now = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
+//     func_start =
+//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().GetStartAddress().GetLineEntry().GetLine();
+//     now =
+//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
 
-//     while ((now == func_start || now == line_before) && should_terminate() == 0) {
-//         if (!g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().IsValid()) {
+//     while ((now == func_start || now == line_before) && should_terminate() ==
+//     0) {
+//         if
+//         (!g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().IsValid())
+//         {
 //             break;
 //         }
 //         sol_log_msg += request_next();
-//         now = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
+//         now =
+//         g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
 //     }
 // }
 
 // void till_not_def_step_in(string& sol_log_msg) {
 //     int error_rec = should_terminate();
 //     uint32_t func_start, now;
-//     if (!g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().IsValid())
+//     if
+//     (!g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().IsValid())
 //         return;
-//     func_start = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().GetStartAddress().GetLineEntry().GetLine();
-//     now = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
+//     func_start =
+//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().GetStartAddress().GetLineEntry().GetLine();
+//     now =
+//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
 //     if (now == func_start && error_rec == 0)
 //         sol_log_msg += request_stepIn();
 // }
 
 void till_next_line(uint32_t line_before, int type) {
-    uint32_t func_start, now;
+  uint32_t func_start, now;
 
-    if (!g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().IsValid())
-        return;
+  if (!g_vsc.target.GetProcess()
+           .GetSelectedThread()
+           .GetSelectedFrame()
+           .GetLineEntry()
+           .IsValid())
+    return;
 
-    func_start = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().GetStartAddress().GetLineEntry().GetLine();
-    now = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
-    while ((now == func_start || now == line_before) && should_terminate() == 0) {
-        // Step-in
-        if (type == 0)
-            g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
-        // Next
-        else if (type == 1)
-            g_vsc.target.GetProcess().GetSelectedThread().StepOver(eOnlyThisThread, g_error);
-        if (!g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().IsValid())
-            break;
-        now = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
-    }
+  func_start = g_vsc.target.GetProcess()
+                   .GetSelectedThread()
+                   .GetSelectedFrame()
+                   .GetFunction()
+                   .GetStartAddress()
+                   .GetLineEntry()
+                   .GetLine();
+  now = g_vsc.target.GetProcess()
+            .GetSelectedThread()
+            .GetSelectedFrame()
+            .GetLineEntry()
+            .GetLine();
+
+  while ((now == func_start || now == line_before) && should_terminate() == 0) {
+    // Step-in
+    if (type == 0)
+      g_vsc.target.GetProcess().GetSelectedThread().StepInto(
+          nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
+    // Next
+    else if (type == 1)
+      request_next_with_cpi();
+
+    if (!g_vsc.target.GetProcess()
+             .GetSelectedThread()
+             .GetSelectedFrame()
+             .GetLineEntry()
+             .IsValid())
+      break;
+    now = g_vsc.target.GetProcess()
+              .GetSelectedThread()
+              .GetSelectedFrame()
+              .GetLineEntry()
+              .GetLine();
+  }
 }
 
 bool request_stepIn_with_cpi() {
-    uint32_t line_before;
-    line_before = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
+  uint32_t line_before;
+  line_before = g_vsc.target.GetProcess()
+                    .GetSelectedThread()
+                    .GetSelectedFrame()
+                    .GetLineEntry()
+                    .GetLine();
 
-    g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
-    
-    till_next_line(line_before, 0);
+  g_vsc.target.GetProcess().GetSelectedThread().StepInto(
+      nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
 
-    return is_invoke_signed_unchecked();
+  till_next_line(line_before, 0);
+
+  return is_invoke_signed_unchecked();
 }
 
-bool request_next_with_cpi() {
-    uint32_t line_before;
-    line_before = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
+int request_next_with_cpi() {
+  cout << "request_next_with_cpi (wasm)" << endl;
+  uint32_t line_before;
+  string func_name_before;
 
-    g_vsc.target.GetProcess().GetSelectedThread().StepOver(eOnlyThisThread, g_error);
+  line_before = g_vsc.target.GetProcess()
+                    .GetSelectedThread()
+                    .GetSelectedFrame()
+                    .GetLineEntry()
+                    .GetLine();
+  func_name_before = g_vsc.target.GetProcess()
+                         .GetSelectedThread()
+                         .GetSelectedFrame()
+                         .GetFunctionName();
+  cout << "function name (before till): " << func_name_before << endl;
 
+  SBFrame f = g_vsc.target.GetProcess()
+                              .GetSelectedThread()
+                              .GetSelectedFrame();
+  addr_t pc = f.GetPC();
+  SBAddress address(pc, g_vsc.target);
+   lldb::SBInstruction instruction = g_vsc.target.ReadInstructions(address, 1).GetInstructionAtIndex(0);
+  cout << "func Current instruction: " << instruction.GetMnemonic(g_vsc.target) << endl;
+  cout << "function name (after till): " << g_vsc.target.GetProcess()
+                              .GetSelectedThread()
+                              .GetSelectedFrame().GetFunctionName() << endl;
+  string next_mnem = instruction.GetMnemonic(g_vsc.target);
+
+  const char* next_line_inst = execute_command("dis -p -c 1");
+  string insts = string(next_line_inst);
+  free((void*)next_line_inst);
+  if (insts.find("goto") != string::npos) {
+    cout << "goto NEXT\n";
+      g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr,
+    LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
+    uint32_t func_start, now;
+    func_start = g_vsc.target.GetProcess()
+                   .GetSelectedThread()
+                   .GetSelectedFrame()
+                   .GetFunction()
+                   .GetStartAddress()
+                   .GetLineEntry()
+                   .GetLine();
+    now = g_vsc.target.GetProcess()
+            .GetSelectedThread()
+            .GetSelectedFrame()
+            .GetLineEntry()
+            .GetLine();
+    if (now == func_start)
+      g_vsc.target.GetProcess().GetSelectedThread().StepInto(
+          nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
+    if (is_invoke_signed_unchecked())
+      return 1;
+    return 0;
+  } else if (insts.find("call") != string::npos) {
+      g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr,
+    LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
+  // till_next_line(line_before, 1);
+
+  // string func_name_after = g_vsc.target.GetProcess()
+  //                              .GetSelectedThread()
+  //                              .GetSelectedFrame()
+  //                              .GetFunctionName();
+
+  // if (is_call) {// && (func_name_before != func_name_after)) {
+    SBFunction function = g_vsc.target.GetProcess()
+                              .GetSelectedThread()
+                              .GetSelectedFrame()
+                              .GetFunction();
+    SBInstructionList instructions = function.GetInstructions(g_vsc.target);
+    for (uint32_t i = 0; i < instructions.GetSize(); i++) {
+      SBInstruction instruction = instructions.GetInstructionAtIndex(i);
+      string mnem = instruction.GetMnemonic(g_vsc.target);
+      if (mnem == "exit") {
+        SBLineEntry lineEntry = instruction.GetAddress().GetLineEntry();
+        cout << "func exit line: " << lineEntry.GetLine() << endl;
+        cout << "func file dir: " << lineEntry.GetFileSpec().GetDirectory() << endl;
+        const char* directory = lineEntry.GetFileSpec().GetDirectory();
+        const char* filename = lineEntry.GetFileSpec().GetFilename();
+        char path_separator = '/';
+        std::string file_path = std::string(directory) + path_separator + filename;
+        cout << "file path: " << file_path << endl;
+        string c = "b -o true -f " + file_path + " -l " + to_string(lineEntry.GetLine());
+        const char* ret = execute_command(c.c_str());
+        free((void*)ret);
+    if (request_continue_with_cpi()) {
+      if (func_name_before.find("invoke_signed_unchecked") != std::string::npos) {
+        cout << "func name before was invoke_signed_unchecked: " << func_name_before << endl;
+        return 1;
+      }
+      else {
+        cout << "func name smth else: " << func_name_before << endl;
+        return 2;
+      }
+    }
+     
+    cout << "function name (END): " << g_vsc.target.GetProcess()
+                              .GetSelectedThread()
+                              .GetSelectedFrame().GetFunctionName() << endl;
+    // out
+    g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr,
+    LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
+    break;
+    }
+    // And next line (goto)
+    // g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr,
+    // LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
+    }
+  } else {
+    // TODO exit vs normal, if normal but change func name -> like call
+    cout << "NORMAL next\n";
+    g_vsc.target.GetProcess().GetSelectedThread().StepOver(eOnlyThisThread,
+                                                         g_error);
+    auto line_entry = g_vsc.target.GetProcess()
+            .GetSelectedThread()
+            .GetSelectedFrame().GetLineEntry();
+    if (!line_entry.GetFileSpec().IsValid()) {
+      cout << "FRAME filespec NOT valid (dis)\n";
+      cout << "function name (DIS): " << g_vsc.target.GetProcess()
+                              .GetSelectedThread()
+                              .GetSelectedFrame().GetFunctionName() << endl;
+ SBBlock block = g_vsc.target.GetProcess()
+                              .GetSelectedThread()
+                              .GetSelectedFrame()
+                              .GetBlock();
+      addr_t exit_addr = block.GetRangeEndAddress(0).GetLoadAddress(g_vsc.target);
+      cout << "exit addr: " << exit_addr << endl;
+         
+      return 0;
+    } else {     
+            cout << "FRAME filespec VALID (dis)\n";
+                                               
     till_next_line(line_before, 1);
-
-    // CPI
-    return is_invoke_signed_unchecked();
+    if (is_invoke_signed_unchecked())
+      return 2;
+    return 0;
+    }
+  }
+  cout << "function name (END2): " << g_vsc.target.GetProcess()
+                              .GetSelectedThread()
+                              .GetSelectedFrame().GetFunctionName() << endl;
+  // No CPI
+  return 0;
+  // return is_invoke_signed_unchecked();
 }
 
 bool request_continue_with_cpi() {
-    g_error = g_vsc.target.GetProcess().Continue();
-        
-    return is_invoke_signed_unchecked();
+  g_error = g_vsc.target.GetProcess().Continue();
+
+  return is_invoke_signed_unchecked();
 }
 
 // const char* request_next() {
@@ -278,28 +485,34 @@ bool request_continue_with_cpi() {
 //     SBFileSpec fs_before;
 //     SBBreakpoint bp;
 
-//     fs_before = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetFileSpec();
-//     func_name_before = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().GetName();
-//     line_before = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
+//     fs_before =
+//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetFileSpec();
+//     func_name_before =
+//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().GetName();
+//     line_before =
+//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
 
-//     g_vsc.target.GetProcess().GetSelectedThread().StepOver(eOnlyThisThread, g_error);
+//     g_vsc.target.GetProcess().GetSelectedThread().StepOver(eOnlyThisThread,
+//     g_error);
 
 //     if (is_sol_log(sol_log_msg)) {
 //         // Before not in `sol_log`?
 //         if (func_name_before.find("sol_log") == std::string::npos) {
-// 	    bp = g_vsc.target.BreakpointCreateByLocation(fs_before, line_before+1);        
+// 	    bp = g_vsc.target.BreakpointCreateByLocation(fs_before,
+// line_before+1);
 //             g_error = g_vsc.target.GetProcess().Continue();
 //             g_vsc.target.BreakpointDelete(bp.GetID());
 //         }
 //     }
-  
+
 //     till_next_line_next(line_before, sol_log_msg);
 //     return strdup(sol_log_msg.c_str());
 // }
 
 // const char* request_stepIn() {
 //     string sol_log_msg;
-//     g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
+//     g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr,
+//     LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
 //     is_sol_log(sol_log_msg);
 //     till_not_def_step_in(sol_log_msg);
 //     return strdup(sol_log_msg.c_str());
@@ -315,25 +528,30 @@ bool request_continue_with_cpi() {
 //     string sol_log_msg;
 //     g_error = g_vsc.target.GetProcess().Continue();
 //     if (is_sol_log(sol_log_msg)) {
-//         if (g_vsc.target.GetProcess().GetSelectedThread().GetStopReasonDataCount() == 2)
+//         if
+//         (g_vsc.target.GetProcess().GetSelectedThread().GetStopReasonDataCount()
+//         == 2)
 //             sol_log_msg += request_continue();
 //     }
 //     return strdup(sol_log_msg.c_str());
 // }
 
-const char* request_cpi_program_id() {
-      SBError error;
+const char *request_cpi_program_id() {
+  SBError error;
 
-      SBValue instruction = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().FindVariable("instruction");
-      SBValue program_id = instruction.GetChildMemberWithName("program_id");
-      SBData pubkey_data = program_id.GetData();
+  SBValue instruction = g_vsc.target.GetProcess()
+                            .GetSelectedThread()
+                            .GetSelectedFrame()
+                            .FindVariable("instruction");
+  SBValue program_id = instruction.GetChildMemberWithName("program_id");
+  SBData pubkey_data = program_id.GetData();
 
-      memset(CPI_PROGRAM_ID, 0, PUBKEY_LEN);
-      for (int i=0; i<PUBKEY_LEN; i++) {
-          CPI_PROGRAM_ID[i] = pubkey_data.GetUnsignedInt8(error, i);
-          printf("%x", pubkey_data.GetUnsignedInt8(error, i)); 
-      }
-      return CPI_PROGRAM_ID;
+  memset(CPI_PROGRAM_ID, 0, PUBKEY_LEN);
+  for (int i = 0; i < PUBKEY_LEN; i++) {
+    CPI_PROGRAM_ID[i] = pubkey_data.GetUnsignedInt8(error, i);
+    printf("%x", pubkey_data.GetUnsignedInt8(error, i));
+  }
+  return CPI_PROGRAM_ID;
 }
 
 // const char* request_source(char* const json) {
@@ -371,7 +589,7 @@ const char* request_cpi_program_id() {
 
 //   auto arguments = request.getObject("arguments");
 //   lldb::SBFrame frame = g_vsc.GetLLDBFrame(*arguments);
- 
+
 //   if (frame.IsValid()) {
 //     frame.GetThread().GetProcess().SetSelectedThread(frame.GetThread());
 //     frame.GetThread().SetSelectedFrame(frame.GetFrameID());
@@ -407,7 +625,7 @@ lldb::SBValueList *GetTopLevelScope(int64_t variablesReference) {
   }
 }
 
-const char* request_stackTrace(char* const json) {
+const char *request_stackTrace(char *const json) {
   cout << "request_stackTrace" << endl;
   llvm::json::Object request;
   llvm::json::Object response;
@@ -418,7 +636,7 @@ const char* request_stackTrace(char* const json) {
   lldb::SBError error;
   auto arguments = request.getObject("arguments");
   lldb::SBThread thread = g_vsc.target.GetProcess().GetSelectedThread();
-  //lldb::SBThread thread = g_vsc.GetLLDBThread(*arguments);
+  // lldb::SBThread thread = g_vsc.GetLLDBThread(*arguments);
   llvm::json::Array stackFrames;
   llvm::json::Object body;
   if (thread.IsValid()) {
@@ -444,7 +662,7 @@ const char* request_stackTrace(char* const json) {
   return build_JSON_str(llvm::json::Value(std::move(response)));
 }
 
-const char* request_setBreakpoints(char* const json) {
+const char *request_setBreakpoints(char *const json) {
   cout << "request_setBreakpoints" << endl;
   llvm::json::Object request;
   llvm::json::Object response;
@@ -513,17 +731,21 @@ const char* request_setBreakpoints(char* const json) {
   return build_JSON_str(llvm::json::Value(std::move(response)));
 }
 
-const char* request_pubkey(char* const name) {
-    SBError error;
-    memset(PUBKEY, 0, PUBKEY_LEN);
-    SBData p = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().EvaluateExpression(name).GetPointeeData();
-    for (int i=0; i<PUBKEY_LEN; i++)
-        PUBKEY[i] = p.GetUnsignedInt8(error, i);
+const char *request_pubkey(char *const name) {
+  SBError error;
+  memset(PUBKEY, 0, PUBKEY_LEN);
+  SBData p = g_vsc.target.GetProcess()
+                 .GetSelectedThread()
+                 .GetSelectedFrame()
+                 .EvaluateExpression(name)
+                 .GetPointeeData();
+  for (int i = 0; i < PUBKEY_LEN; i++)
+    PUBKEY[i] = p.GetUnsignedInt8(error, i);
 
-    return PUBKEY;
+  return PUBKEY;
 }
 
-const char* request_variables(char* const json) {
+const char *request_variables(char *const json) {
   cout << "request_variables" << endl;
 
   llvm::json::Object request;
@@ -544,10 +766,12 @@ const char* request_variables(char* const json) {
     hex = GetBoolean(format, "hex", false);
 
   lldb::SBThread thread = g_vsc.target.GetProcess().GetSelectedThread();
-  g_vsc.variables.locals = thread.GetSelectedFrame().GetVariables(/*arguments=*/true,
-                                              /*locals=*/true,
-                                              /*statics=*/false,
-                                              /*in_scope_only=*/true);;
+  g_vsc.variables.locals =
+      thread.GetSelectedFrame().GetVariables(/*arguments=*/true,
+                                             /*locals=*/true,
+                                             /*statics=*/false,
+                                             /*in_scope_only=*/true);
+  ;
 
   if (lldb::SBValueList *top_scope = GetTopLevelScope(variablesReference)) {
     cout << "IS top_scope" << endl;
@@ -609,7 +833,7 @@ const char* request_variables(char* const json) {
         }
       }
     } else {
-    cout << "IS NOT valid variable" << endl;
+      cout << "IS NOT valid variable" << endl;
     }
   }
   llvm::json::Object body;
@@ -620,7 +844,6 @@ const char* request_variables(char* const json) {
 }
 
 #else // ---------------------------------------------------------------------------------
-
 
 #include "Driver.h"
 
@@ -1216,7 +1439,7 @@ int Driver::MainLoop() {
 
     // Set the debugger into Sync mode when running the command file. Otherwise
     // command files that run the target won't run in a sensible way.
-    //bool old_async = m_debugger.GetAsync();
+    // bool old_async = m_debugger.GetAsync();
     m_debugger.SetAsync(false);
 
     SBCommandInterpreterRunOptions options;
@@ -1265,7 +1488,7 @@ int Driver::MainLoop() {
           return 1;
       }
     }
-    //m_debugger.SetAsync(old_async);
+    // m_debugger.SetAsync(old_async);
   }
 
   // Now set the input file handle to STDIN and run the command interpreter
@@ -1391,7 +1614,6 @@ EXAMPLES:
   loading the file (via -o or -s) will be ignored.)___";
   llvm::outs() << examples << '\n';
 }
-
 
 int main(int argc, char const *argv[]) {
   // Editline uses for example iswprint which is dependent on LC_CTYPE.

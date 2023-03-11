@@ -471,7 +471,8 @@ export default {
       this.LLDB._free(resPtr);
       return lldbOutput;
     },
-    async handleCpi() {
+    async handleCpi(type) {
+      console.log("handleCpi", type);
       await this.updateEditor();
       const pubkeyArr = await this.LLDB.ccall(
         "request_cpi_program_id",
@@ -500,14 +501,23 @@ export default {
       }
       this.status = "In CPI";
       window.open(url);
-      // This will block till cpi finished
-      await this.LLDB.ccall("request_next_with_cpi", "boolean", [], [], {
-        async: true,
-      });
-      this.status = "Running";
+      // This will block till cpi has finished
+      if (type === "continue") {
+        await this.continue_();
+      } else if (type === "next") {
+        await this.next();
+      } else if (type === "stepIn") {
+        await this.stepIn();
+      }
+      if (this.status !== "Finished") {
+        this.status = "Running";
+      }
       console.log("CPI finished");
     },
     async check_finished() {
+      if (this.status === "Finished") {
+        return;
+      }
       const isFinished = await this.LLDB.ccall(
         "should_terminate",
         "number",
@@ -518,13 +528,20 @@ export default {
       if (isFinished === -1) {
         this.status = "Finished";
         console.log("execution finished");
+        const file = "code/sdk/" + this.solana_version + "/src/entrypoint.rs";
+        this.load_file(file);
+        this.editorState["file"] = file;
+        this.editorState["line"] = this.getEndLine();
+        this.editorState = JSON.parse(JSON.stringify(this.editorState));
         alert("execution finished");
         if (this.status !== "In CPI") {
           this.isRestart = true;
         }
         return;
       }
-      await this.updateEditor();
+      if (this.status !== "Finished") {
+        await this.updateEditor();
+      }
       this.isActive = true;
     },
     // Debug Panel
@@ -540,7 +557,7 @@ export default {
       );
       // CPI
       if (is_before_cpi === true) {
-        await this.handleCpi();
+        await this.handleCpi("stepIn");
       }
       await this.check_finished();
     },
@@ -563,14 +580,16 @@ export default {
       console.log("request_next_with_cpi");
       const is_before_cpi = await this.LLDB.ccall(
         "request_next_with_cpi",
-        "boolean",
+        "number",
         [],
         [],
         { async: true }
       );
       // CPI
-      if (is_before_cpi === true) {
-        await this.handleCpi();
+      if (is_before_cpi === 1) {
+        await this.handleCpi("next");
+      } else if (is_before_cpi === 2) {
+        await this.handleCpi("continue");
       }
       await this.check_finished();
     },
@@ -586,7 +605,7 @@ export default {
       );
       // CPI
       if (is_before_cpi === true) {
-        await this.handleCpi();
+        await this.handleCpi("continue");
       }
       await this.check_finished();
     },
@@ -623,31 +642,34 @@ export default {
         request,
         "request_stackTrace"
       );
-
-      console.log("PATH:", responseJSON.body.stackFrames[0].source.path);
-      let path = responseJSON.body.stackFrames[0].source.path;
-      if (path) {
-        let file = this.sanitizeFileName(path);
-        if (file !== undefined) {
-          this.load_file(file);
-          this.editorState["file"] = file;
-          this.editorState["line"] = responseJSON.body.stackFrames[0].line;
-          this.lineMark["file"] = file;
-          this.lineMark["line"] = responseJSON.body.stackFrames[0].line;
-          let breakpointsEditor;
-          if (this.breakpoints[this.editorState.file] === undefined) {
-            breakpointsEditor = [];
-          } else {
-            breakpointsEditor = JSON.parse(
-              JSON.stringify(this.breakpoints[this.editorState.file])
-            );
-          }
-          this.editorState.updateType = "all";
-          this.editorState["breakpoints"] = breakpointsEditor;
-          this.editorState = JSON.parse(JSON.stringify(this.editorState));
-        }
+      if (responseJSON.body.stackFrames[0].line === 0) {
+        return;
       } else {
-        console.log("DISASSEMBLY");
+        console.log("PATH:", responseJSON.body.stackFrames[0].source.path);
+        let path = responseJSON.body.stackFrames[0].source.path;
+        if (path) {
+          let file = this.sanitizeFileName(path);
+          if (file !== undefined) {
+            this.load_file(file);
+            this.editorState["file"] = file;
+            this.editorState["line"] = responseJSON.body.stackFrames[0].line;
+            this.lineMark["file"] = file;
+            this.lineMark["line"] = responseJSON.body.stackFrames[0].line;
+            let breakpointsEditor;
+            if (this.breakpoints[this.editorState.file] === undefined) {
+              breakpointsEditor = [];
+            } else {
+              breakpointsEditor = JSON.parse(
+                JSON.stringify(this.breakpoints[this.editorState.file])
+              );
+            }
+            this.editorState.updateType = "all";
+            this.editorState["breakpoints"] = breakpointsEditor;
+            this.editorState = JSON.parse(JSON.stringify(this.editorState));
+          }
+        } else {
+          console.log("DISASSEMBLY");
+        }
       }
       await this.disassemble();
       await this.getRegisters();
@@ -693,7 +715,7 @@ export default {
         "execute_command",
         "number",
         ["string"],
-        ["disassemble -p -b -c 7"],
+        ["disassemble -l -b"],
         { async: true }
       );
       let res = this.LLDB.UTF8ToString(resPtr);
@@ -712,6 +734,20 @@ export default {
       }
       this.disData = data;
       this.LLDB._free(resPtr);
+    },
+    async setCpiLine(solana_version) {
+      let line;
+      if (
+        solana_version === "solana-program-1.10.33" ||
+        solana_version === "solana-program-1.10.41"
+      ) {
+        line = 304;
+      } else if (solana_version === "solana-program-1.9.28") {
+        line = 78;
+      }
+      await this.LLDB.ccall("set_cpi_line", null, ["number"], [line], {
+        async: true,
+      });
     },
     // stack trace -> editor
     sanitizeFileName(fileName) {
@@ -735,6 +771,15 @@ export default {
       console.log("sanitized:", fileName);
       return fileName;
     },
+    getEndLine() {
+      if (this.solana_version === "solana-program-1.9.28") {
+        return 127;
+      } else if (this.solana_version === "solana-program-1.10.33") {
+        return 127;
+      } else if (this.solana_version === "solana-program-1.10.41") {
+        return 127;
+      }
+    },
     // Setup
     async getTree() {
       const res = await fetch(
@@ -743,6 +788,7 @@ export default {
       this.tree = await res.json();
       this.rust_version = this.tree.children[2].name;
       this.solana_version = this.tree.children[4].children[0].name;
+      this.setCpiLine(this.solana_version);
       this.borsh_version = this.tree.children[1].name;
       console.log("rust", this.tree);
       console.log("solana", this.solana_version);
@@ -810,6 +856,13 @@ export default {
         .map((b) => b.line);
 
       if (file === this.editorState.file) {
+        if (
+          this.editorState.breakpoints !== undefined &&
+          this.editorState.breakpoints.length === 0 &&
+          this.breakpoints[file].length === 0
+        ) {
+          return;
+        }
         this.editorState.updateType = "breakpoints";
         this.editorState.breakpoints = this.breakpoints[this.editorState.file];
         this.editorState = JSON.parse(JSON.stringify(this.editorState));

@@ -24,10 +24,9 @@
       >&#8595;</span
     >
     <span
-      class="button-purple"
+      class="deactivated"
       @click="stepOut"
       title="step out"
-      :class="{ deactivated: !isActive }"
       >&#8593;</span
     >
     <span

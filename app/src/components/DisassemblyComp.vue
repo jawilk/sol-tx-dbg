@@ -5,7 +5,7 @@
           <th class="table-entry2">inst</th>
           <th class="table-entry">mnem</th>
         </tr>
-        <tr v-for="(item, index) in disData" :key="item.addr" :class="{ 'dis-background': index === 0 }">
+        <tr v-for="item in disData" :key="item.addr" :class="{ 'dis-background': item.addr.includes('->')}">
           <td>{{ item.addr }}</td>
           <td>{{ item.inst }}</td>
           <td>{{ item.mnem }}</td>

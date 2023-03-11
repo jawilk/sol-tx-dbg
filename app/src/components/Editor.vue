@@ -180,6 +180,9 @@ export default {
         ),
       ];
       console.log("difference", difference);
+      if (difference.length === 0) {
+        return;
+      }
       difference.forEach((l) => {
         const docPosition = this.view.state.doc.line(l).from;
         this.toggleBreakpoint(docPosition);
