@@ -72,9 +72,10 @@ solana_sdk::declare_builtin!(
 
 use std::sync::atomic::{AtomicU16, Ordering};
 
-// TODO: unify this in one place
-const SUPPORTED_PROGRAMS: [&str; 3] =
-    ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi"];
+
+pub const SUPPORTED_PROGRAMS: [&str; 6] =
+    ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi", "srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX", "PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY", "So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo"];
+    
 static PORT: AtomicU16 = AtomicU16::new(0);
 
 pub fn set_port(port: u16) {
@@ -160,9 +161,6 @@ pub fn create_executor(
     reject_deployment_of_broken_elfs: bool,
     disable_deploy_of_alloc_free_syscall: bool,
 ) -> Result<Arc<BpfExecutor>, InstructionError> {
-
-    println!("\nCREATE_EXECUTOR !!!!");
-
     let mut register_syscalls_time = Measure::start("register_syscalls_time");
     let register_syscall_result =
         syscalls::register_syscalls(invoke_context, disable_deploy_of_alloc_free_syscall);
@@ -1316,7 +1314,6 @@ impl Executor for BpfExecutor {
         _first_instruction_account: usize,
         invoke_context: &mut InvokeContext,
     ) -> Result<(), InstructionError> {
-        println!("\nHEREEEEEEEEEEEEEEEEEEEEEEEEE\n");
         let log_collector = invoke_context.get_log_collector();
         let compute_meter = invoke_context.get_compute_meter();
         let stack_height = invoke_context.get_stack_height();
@@ -1353,7 +1350,6 @@ impl Executor for BpfExecutor {
             stable_log::program_invoke(&log_collector, &program_id, stack_height);
             let mut instruction_meter = ThisInstructionMeter::new(compute_meter.clone());
             let before = compute_meter.borrow().get_remaining();
-            println!("program_id: {:?}", program_id);
             let result = if SUPPORTED_PROGRAMS.iter().any(|&p| p == program_id.to_string()) {
                 let mut interpreter = Interpreter::new(&mut vm, &mut instruction_meter).unwrap();
                 //PORT.fetch_add(1, Ordering::Relaxed);
@@ -1362,7 +1358,6 @@ impl Executor for BpfExecutor {
                 PORT.store(0, Ordering::Relaxed);
                 debugger::execute(&mut interpreter, "127.0.0.1", port)
             } else {
-                println!("NOT SUPPORTED");
                 vm.execute_program_interpreted(&mut instruction_meter)
             };
             /*let result = if self.use_jit {
@@ -1370,7 +1365,6 @@ impl Executor for BpfExecutor {
             } else {
                 vm.execute_program_interpreted(&mut instruction_meter)
             };*/
-            println!("RESULT: {:?}", result);
             let after = compute_meter.borrow().get_remaining();
             ic_logger_msg!(
                 log_collector,
