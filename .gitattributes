@@ -1,1 +1,7 @@
 backend/server/static/lldb.wasm filter=lfs diff=lfs merge=lfs -text
+backend/server/static/elfs/So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo.so filter=lfs diff=lfs merge=lfs -text
+backend/server/static/elfs/srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX.so filter=lfs diff=lfs merge=lfs -text
+backend/server/static/elfs/TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA.so filter=lfs diff=lfs merge=lfs -text
+backend/server/static/elfs/ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL.so filter=lfs diff=lfs merge=lfs -text
+backend/server/static/elfs/CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi.so filter=lfs diff=lfs merge=lfs -text
+backend/server/static/elfs/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY.so filter=lfs diff=lfs merge=lfs -text
