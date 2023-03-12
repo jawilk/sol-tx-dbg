@@ -120,7 +120,9 @@ export default {
       try {
         const fetchResponse = await fetch(url);
         return fetchResponse;
-      } catch (ex) {}
+      } catch (e) {
+        console.log(e);
+      }
     },
     toggleBreakpoint(pos) {
       let breakpoints = this.view.state.field(breakpointState);

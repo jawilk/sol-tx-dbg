@@ -696,7 +696,9 @@ export default {
           let inst = line.split(": ")[1].slice(0, 23);
           let mnem = line.split(inst)[1];
           data.push({ addr: addr, inst: inst.toUpperCase(), mnem: mnem });
-        } catch (e) {}
+        } catch (e) {
+          console.log(e);
+        }
       }
       this.disData = data;
       this.LLDB._free(resPtr);
