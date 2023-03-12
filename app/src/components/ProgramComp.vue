@@ -796,11 +796,17 @@ export default {
         this.files_url + "trees/" + this.program_id + ".json"
       );
       this.tree = await res.json();
-      this.rust_version = this.tree.children[2].name;
-      this.solana_version = this.tree.children[4].children[0].name;
+      console.log("tree", this.tree);
+      for (const c of this.tree.children) {
+        if (c.name.includes("rust")) {
+          this.rust_version = c.name;
+        } else if (c.name.includes("borsh")) {
+          this.borsh_version = c.name;
+        } else if (c.name.includes("sdk")) {
+          this.solana_version = c.children[0].name;
+        }
+      }
       this.setCpiLine(this.solana_version);
-      this.borsh_version = this.tree.children[1].name;
-      console.log("rust", this.tree);
       console.log("solana", this.solana_version);
       console.log("borsh", this.borsh_version);
     },

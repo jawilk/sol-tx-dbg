@@ -1,0 +1,25 @@
+[
+  { 
+    "id": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+    "name": "Associated Token Program"
+  },
+  { 
+    "id": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "name": "Token Program"
+  },
+  { "id": "CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi",
+    "name": "Lido"
+  },
+  {
+    "id": "srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX",
+    "name": "OpenBook DEX"
+  },
+  {
+    "id": "PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY",
+    "name": "Phoenix V1"
+  },
+  {
+    "id": "So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo",
+    "name": "Solend"
+  }
+]

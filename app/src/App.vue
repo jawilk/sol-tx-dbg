@@ -20,12 +20,12 @@
         local
       </button>
     </span>
-    <span class="github-wrap">
-      <a href="https://github.com">
+    <span class="github-wrap" title="coming soon">
+      <!-- <a href="https://github.com"> -->
         <span class="icon">
           <i class="fab fa-github github-button"></i>
         </span>
-      </a>
+      <!-- </a> -->
     </span>
   </div>
   <localComp v-if="showLocal" :showLocal="showLocal"
@@ -45,11 +45,12 @@ export default {
     return {
       txHash: "",
       showLocal: false,
+      previousRoute: null,
     };
   },
   methods: {
     loadTx() {
-      // console.log("load tx", this.txHash);
+      this.previousRoute = this.$route;
       this.$router.push({ name: "choose", query: { txHash: this.txHash } });
     },
     toggleLocalExecution() {
@@ -154,7 +155,7 @@ body {
   border-radius: 6px;
   border-width: 1em;
   right: 0%;
-  width: 50px;
+  width: 40px;
   height: 30px;
 }
 

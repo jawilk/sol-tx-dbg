@@ -12,8 +12,10 @@
 
       <b>ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL</b><br />
       <b>TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA</b><br />
-      <b>CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi</b> (Lido)<br>
+      <b>CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi</b> (Lido)<br />
       <b>srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX</b> (OpenBook DEX)<br />
+      <b>PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY</b> (Phoenix V1)<br />
+      <b>So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo</b> (Solend)<br />
       <br />
       <b>Please note:</b> Since we use the current on-chain state for all
       accounts, it is possible that previously successful transactions may now

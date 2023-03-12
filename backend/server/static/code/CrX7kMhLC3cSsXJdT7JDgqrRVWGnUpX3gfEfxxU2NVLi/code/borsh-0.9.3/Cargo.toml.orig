@@ -1,0 +1,31 @@
+[package]
+name = "borsh"
+version = "0.9.3"
+authors = ["Near Inc <hello@near.org>"]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+categories = ["encoding", "network-programming"]
+repository = "https://github.com/near/borsh-rs"
+homepage = "http://borsh.io"
+description = """
+Binary Object Representation Serializer for Hashing
+"""
+
+[lib]
+name = "borsh"
+path = "src/lib.rs"
+
+[[bin]]
+name = "generate_schema_schema"
+path = "src/generate_schema_schema.rs"
+
+[dependencies]
+borsh-derive = { path = "../borsh-derive", version = "=0.9.3" }
+hashbrown = "0.11"
+
+[features]
+default = ["std"]
+std = []
+rc = []
+const-generics = []
