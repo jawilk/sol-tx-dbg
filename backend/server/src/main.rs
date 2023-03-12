@@ -39,7 +39,6 @@ use uuid::Uuid;
 lazy_static! {
     static ref SUPPORTED_PROGRAMS: HashMap<String, String> = {
         let data = load_supported_programs("static/supported_programs.json");
-        println!("supp: {:?}", data);
         let mut map = HashMap::new();
         for d in data {
             map.insert(d.id, d.name);
@@ -51,8 +50,7 @@ lazy_static! {
 fn load_supported_programs(file_path: &str) -> Vec<SupportedProgram> {
     let file = File::open(file_path).unwrap();
     let reader = BufReader::new(file);
-    let data = from_reader(reader).unwrap();
-    data
+    from_reader(reader).unwrap()
 }
 
 #[derive(Debug, Deserialize)]
@@ -105,12 +103,10 @@ fn load_tx(tx_hash_str: &str) -> anyhow::Result<Vec<Vec<String>>> {
     match fs::read_dir(path) {
         // Tx already exists
         Ok(files) => {
-            println!("Tx already cached!");
             let mut inst_files: Vec<DirEntry> = files.filter_map(Result::ok).collect();
             inst_files.sort_by_key(|dir_entry| dir_entry.file_name());
             let mut tx_programs = vec![];
             for inst in inst_files {
-                println!("Inst nr: {:?}", inst);
                 if inst.file_type()?.is_file() {
                     let file_path = inst.path();
                     let file = fs::File::open(file_path)?;
@@ -126,7 +122,6 @@ fn load_tx(tx_hash_str: &str) -> anyhow::Result<Vec<Vec<String>>> {
         }
         // New tx, fetch from rpc
         Err(_) => {
-            println!("New tx!");
             let rpc_client = RpcClient::new("https://api.mainnet-beta.solana.com".to_string());
             let config = RpcTransactionConfig {
                 encoding: Some(UiTransactionEncoding::Json),

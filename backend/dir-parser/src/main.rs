@@ -1,7 +1,5 @@
-use serde::{Deserialize, Serialize};
-use serde_json;
+use serde::Serialize;
 use walkdir::WalkDir;
-
 
 #[derive(Debug, Serialize)]
 struct Path {
@@ -12,7 +10,7 @@ impl Path {
     pub fn new(full: &str, path: &str) -> Path {
         Path {
             full: full.to_string(),
-            parts: path.to_string().split("/").map(|s| s.to_string()).collect(),
+            parts: path.to_string().split('/').map(|s| s.to_string()).collect(),
         }
     }
 }
@@ -20,7 +18,7 @@ impl Path {
 #[derive(Debug, Clone, Serialize)]
 struct Dir {
     name: String,
-    children: Vec<Box<Dir>>,
+    children: Vec<Dir>,
     path: String,
 }
 
@@ -28,25 +26,20 @@ impl Dir {
     fn new(name: &str, path: &str) -> Dir {
         Dir {
             name: name.to_string(),
-            children: Vec::<Box<Dir>>::new(),
+            children: Vec::<Dir>::new(),
             path: path.to_string(),
         }
     }
 
     fn find_child(&mut self, name: &str) -> Option<&mut Dir> {
-        for c in self.children.iter_mut() {
-            if c.name == name {
-                return Some(c);
-            }
-        }
-        None
+        self.children.iter_mut().find(|c| c.name == name)
     }
 
     fn add_child<T>(&mut self, leaf: T) -> &mut Self
     where
         T: Into<Dir>,
     {
-        self.children.push(Box::new(leaf.into()));
+        self.children.push(leaf.into());
         self
     }
 }
@@ -71,52 +64,25 @@ fn main() {
         build_tree(&mut top, &path.parts, 0, &path.full);
     }
 
-    println!(
-        "Intermediate Representation of Dirs:\n{:#?}\n\nOutput Tree Format:\n",
-        top
-    );
-
-    print_dir(&top, 0);
-
     let res_string = serde_json::to_string(&top).unwrap();
-    println!("{}", res_string);
-    std::fs::write("test.json", res_string).unwrap();
+    std::fs::write("out.json", res_string).unwrap();
 }
 
 fn build_tree(node: &mut Dir, parts: &Vec<String>, depth: usize, path_full: &str) {
     if depth < parts.len() {
         let item = &parts[depth];
 
-        let mut dir = match node.find_child(&item) {
+        let dir = match node.find_child(item) {
             Some(d) => d,
             None => {
-                let d = Dir::new(&item, path_full);
+                let d = Dir::new(item, path_full);
                 node.add_child(d);
-                match node.find_child(&item) {
+                match node.find_child(item) {
                     Some(d2) => d2,
-                    None => panic!("Got here!"),
+                    None => panic!("no child"),
                 }
             }
         };
-        build_tree(&mut dir, parts, depth + 1, path_full);
-    }
-}
-
-// A function to print a Dir in format similar to unix `tree` command.
-fn print_dir(dir: &Dir, depth: u32) {
-    if depth == 0 {
-        println!("{}", dir.name);
-    } else {
-        println!(
-            "{:indent$}{} {}",
-            "",
-            "└──",
-            dir.name,
-            indent = ((depth as usize) - 1) * 4
-        );
-    }
-
-    for child in dir.children.iter() {
-        print_dir(child, depth + 1)
+        build_tree(dir, parts, depth + 1, path_full);
     }
 }

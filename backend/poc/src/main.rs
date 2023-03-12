@@ -5,25 +5,20 @@ use std::io::Read;
 use std::io::{BufRead, BufReader};
 use std::{env, str::FromStr};
 
+use bs58::decode;
 use poc_framework::{Environment, LocalEnvironment};
-use solana_bpf_loader_program::set_port;
+use solana_bpf_loader_program::{set_port, SUPPORTED_PROGRAMS};
 use solana_client::rpc_client::RpcClient;
 use solana_program::instruction::{AccountMeta, Instruction};
 use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_program};
 use solana_transaction_status::UiRawMessage;
 use solana_transaction_status::UiTransaction;
-use bs58::decode;
-
-
-const SUPPORTED_PROGRAMS: [&str; 3] =
-    ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi"];
 
 pub fn main() {
     let args: Vec<_> = env::args().collect();
     let tx_hash = &args[1];
     let inst_nr = args[2].parse::<usize>().unwrap();
     let port = args[3].parse::<u16>().unwrap();
-    println!("id: {} nr: {} port: {}", tx_hash, inst_nr, port);
     setup(tx_hash, inst_nr, port);
 }
 
@@ -74,7 +69,6 @@ fn get_inst(
     let tx = load_tx(tx_hash_str);
     match tx.message {
         solana_transaction_status::UiMessage::Raw(message) => {
-            println!("msg: {:?}", message);
             let payer = Pubkey::from_str(&message.account_keys[0]).unwrap();
             let mut writable_accs = (0..message.header.num_required_signatures
                 - message.header.num_readonly_signed_accounts)
@@ -148,8 +142,7 @@ fn sanitize_accounts(
 }
 
 fn setup(tx_hash: &str, inst_nr: usize, port: u16) {
-    println!("PORT framework: {}", port);
-    // In solana-bpf-loader-progam
+    // For debugger solana-bpf-loader-progam
     set_port(port);
 
     let rpc_client = RpcClient::new("https://api.mainnet-beta.solana.com".to_string());
@@ -165,11 +158,8 @@ fn setup(tx_hash: &str, inst_nr: usize, port: u16) {
         .add_programs_not_supported(&programs_not_supported, &rpc_client)
         .add_programs_supported(&programs_supported)
         // Add the original payer
-        .add_account_with_lamports(payer, system_program::ID, sol_to_lamports(1.0))
+        .add_account_with_lamports(payer, system_program::ID, sol_to_lamports(1000000.0))
         .build();
-
-    println!("payer: {:?}", payer);
-    println!("inst: {:?}", inst);
 
     env.execute_as_transaction_unsigned(&[inst], &payer);
 }
