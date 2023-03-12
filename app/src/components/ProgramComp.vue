@@ -253,15 +253,12 @@ export default {
   },
   async mounted() {
     if (!this.$route.query.tx_hash) {
-      console.log("IS CPI");
       this.status = "Starting CPI...";
     } else {
-      console.log("NO CPI");
       this.status = "Starting...";
       this.tx_hash = this.$route.query.tx_hash;
       this.inst_nr = this.$route.query.inst_nr;
     }
-    console.log("program query", this.$route.query);
     // vue-grid-layout
     this.index = this.layout.length;
     // instantiate lldb.wasm
@@ -274,7 +271,6 @@ export default {
     } else {
       this.program_name = this.program_id;
     }
-    console.log("name", this.program_name);
     if (!this.$route.query.tx_hash) {
       this.LLDB["websocket"]["url"] = this.websocket_url + this.uuid;
     } else {
@@ -303,7 +299,6 @@ export default {
     this.supported_programs = await resonse.json();
     this.isDebuggerConnected = true;
     this.isActive = true;
-    console.log("mounted");
     if (this.status === "Starting CPI...") {
       this.status = "Running (CPI)";
     } else {
@@ -313,19 +308,16 @@ export default {
     await this.updateEditor();
   },
   methods: {
-    // To prevent text selection while dragging
+    // Prevent text selection while dragging
     onDragStart() {
       this.isDragging = true;
-      console.log("drag start", this.isDragging);
     },
     onDragStop() {
       this.isDragging = false;
-      console.log("drag stop", this.isDragging);
     },
     handleWindowClose() {
       if (!this.isDebuggerConnected) {
         const ws = new WebSocket(this.websocket_url + this.uuid);
-        // ws.send('close');
         ws.close();
       }
     },
@@ -443,7 +435,6 @@ export default {
       if (!this.isActive) {
         return "please wait for the current action to finish or restart";
       }
-      console.log("executeLLDBCommand", command);
       let resPtr = await this.LLDB.ccall(
         "execute_command",
         "number",
@@ -456,7 +447,6 @@ export default {
       return lldbOutput;
     },
     async getMemory(address, bytes, is_user) {
-      console.log("getMemory", this.status);
       if (is_user && !this.isActive) {
         return "please wait for the current action to finish or restart";
       }
@@ -473,7 +463,6 @@ export default {
       return lldbOutput;
     },
     async handleCpi(type) {
-      console.log("handleCpi", type);
       await this.updateEditor();
       const pubkeyArr = await this.LLDB.ccall(
         "request_cpi_program_id",
@@ -485,7 +474,6 @@ export default {
       const pubkey = bs58.encode(
         new Uint8Array(this.LLDB.HEAPU8.buffer, pubkeyArr, 32)
       );
-      console.log("request_cpi_program_id: ", pubkey);
       let url;
       const p = this.supported_programs.find((obj) => obj.id === pubkey);
       if (p) {
@@ -513,10 +501,8 @@ export default {
       if (this.status !== "Finished") {
         this.status = "Running";
       }
-      console.log("CPI finished");
     },
     async check_finished(should_update) {
-      console.log("check_finished", this.status);
       if (this.status === "Finished") {
         return;
       }
@@ -529,7 +515,6 @@ export default {
       );
       if (isFinished === -1 && this.status !== "Finished") {
         this.status = "Finished";
-        console.log("execution finished");
         const file = "code/sdk/" + this.solana_version + "/src/entrypoint.rs";
         this.load_file(file);
         this.editorState["file"] = file;
@@ -549,7 +534,6 @@ export default {
     // Debug Panel
     async stepIn(should_update) {
       this.isActive = false;
-      console.log("request_stepIn_with_cpi");
       const is_before_cpi = await this.LLDB.ccall(
         "request_stepIn_with_cpi",
         "boolean",
@@ -565,10 +549,15 @@ export default {
     },
     async stepOut(should_update) {
       this.isActive = false;
-      console.log("request_stepOut_with_cpi");
-      const is_before_cpi = await this.LLDB.ccall("request_stepOut", "boolean", [], [], {
-        async: true,
-      });
+      const is_before_cpi = await this.LLDB.ccall(
+        "request_stepOut",
+        "boolean",
+        [],
+        [],
+        {
+          async: true,
+        }
+      );
       // CPI
       if (is_before_cpi) {
         await this.handleCpi("continue");
@@ -580,7 +569,6 @@ export default {
     },
     async next(should_update) {
       this.isActive = false;
-      console.log("request_next_with_cpi");
       const is_before_cpi = await this.LLDB.ccall(
         "request_next_with_cpi",
         "number",
@@ -588,7 +576,6 @@ export default {
         [],
         { async: true }
       );
-      console.log("is_before_cpi", is_before_cpi);
       // CPI
       if (is_before_cpi === 1) {
         await this.handleCpi("next");
@@ -602,7 +589,6 @@ export default {
     },
     async continue_(should_update) {
       this.isActive = false;
-      console.log("continue");
       const is_before_cpi = await this.LLDB.ccall(
         "request_continue_with_cpi",
         "boolean",
@@ -610,8 +596,6 @@ export default {
         [],
         { async: true }
       );
-      console.log("is_before_cpi (cont)", is_before_cpi);
-
       // CPI
       if (is_before_cpi === true) {
         await this.handleCpi("continue");
@@ -624,7 +608,6 @@ export default {
         return;
       }
       const requestStr = JSON.stringify(request);
-      console.log("LLDBRequest", requestStr);
       let txPtr = await this.LLDB._malloc(requestStr.length + 1);
       await this.LLDB.stringToUTF8(requestStr, txPtr, requestStr.length + 1);
       const rxPtr = await this.LLDB.ccall(name, "number", ["number"], [txPtr], {
@@ -632,7 +615,6 @@ export default {
       });
       const responseStr = await this.LLDB.UTF8ToString(rxPtr);
       let responseJSON = JSON.parse(responseStr);
-      console.log("response", responseJSON);
       this.seqId++;
       // Cleanup
       await this.LLDB._free(txPtr);
@@ -640,7 +622,6 @@ export default {
       return responseJSON;
     },
     async updateEditor() {
-      console.log("update editor");
       var request = {
         type: "request",
         seq: this.seqId,
@@ -654,7 +635,6 @@ export default {
       if (responseJSON.body.stackFrames[0].line === 0) {
         return;
       } else {
-        console.log("PATH:", responseJSON.body.stackFrames[0].source.path);
         let path = responseJSON.body.stackFrames[0].source.path;
         if (path) {
           let file = this.sanitizeFileName(path);
@@ -676,14 +656,11 @@ export default {
             this.editorState["breakpoints"] = breakpointsEditor;
             this.editorState = JSON.parse(JSON.stringify(this.editorState));
           }
-        } else {
-          console.log("DISASSEMBLY");
         }
       }
       await this.disassemble();
       await this.getRegisters();
       await this.getVariables();
-      console.log("update editor done");
     },
     async getVariables() {
       var request = {
@@ -695,7 +672,6 @@ export default {
       const responseJSON = await this.LLDBRequest(request, "request_variables");
 
       this.variables = responseJSON.body.variables;
-      console.log("variables", this.variables);
     },
     async getRegisters() {
       let resPtr = await this.LLDB.ccall(
@@ -715,7 +691,6 @@ export default {
         match = regex.exec(registers);
         count++;
       }
-      console.log("reg", registersParsed);
       this.registers = registersParsed;
       this.LLDB._free(resPtr);
     },
@@ -737,9 +712,7 @@ export default {
           let inst = line.split(": ")[1].slice(0, 23);
           let mnem = line.split(inst)[1];
           data.push({ addr: addr, inst: inst.toUpperCase(), mnem: mnem });
-        } catch (e) {
-          //console.log("error", e)
-        }
+        } catch (e) {}
       }
       this.disData = data;
       this.LLDB._free(resPtr);
@@ -774,10 +747,8 @@ export default {
       } else if (fileName.includes("/program/src/")) {
         fileName = "code/program/" + fileName.split("/program/")[1];
       } else {
-        console.log("unknown file", fileName);
         fileName = undefined;
       }
-      console.log("sanitized:", fileName);
       return fileName;
     },
     getEndLine() {
@@ -796,7 +767,6 @@ export default {
         this.files_url + "trees/" + this.program_id + ".json"
       );
       this.tree = await res.json();
-      console.log("tree", this.tree);
       for (const c of this.tree.children) {
         if (c.name.includes("rust")) {
           this.rust_version = c.name;
@@ -807,8 +777,6 @@ export default {
         }
       }
       this.setCpiLine(this.solana_version);
-      console.log("solana", this.solana_version);
-      console.log("borsh", this.borsh_version);
     },
     // editor -> LLDB
     sanitizeBreakpointPath(path) {
@@ -829,16 +797,13 @@ export default {
     },
     // Editor
     async toggleBreakpoints(file, line) {
-      console.log("toggleBreakpoin!!!!!!!!!", file, line);
       if (this.LLDB === null || !this.isActive) {
         return;
       }
-      console.log("toggleBreakpoints0", this.breakpoints[file]);
       if (file === "") {
         file = this.editorState.file;
       }
       let preBreakpoints;
-      console.log("toggleBreakpoints", file, line);
       if (this.breakpoints[file] === undefined) {
         preBreakpoints = [];
       } else {
@@ -866,7 +831,6 @@ export default {
         request,
         "request_setBreakpoints"
       );
-      console.log("responseJSON", responseJSON);
       this.breakpoints[file] = responseJSON.body.breakpoints
         .filter((b) => b.verified === true)
         .map((b) => b.line);
@@ -882,9 +846,7 @@ export default {
         this.editorState.updateType = "breakpoints";
         this.editorState.breakpoints = this.breakpoints[this.editorState.file];
         this.editorState = JSON.parse(JSON.stringify(this.editorState));
-        console.log("editorState.breakpoints", this.editorState.breakpoints);
       }
-      console.log("breakpoints", this.breakpoints[this.editorState.file]);
     },
 
     load_file(name) {
@@ -894,7 +856,6 @@ export default {
       if (this.prev_node) {
         this.prev_node.open = false;
       }
-      console.log("load_file", name);
       const name_split = name.split("/");
       this.tree.is_open = true;
       let node = this.tree;
@@ -923,11 +884,9 @@ export default {
       if (this.prev_node) {
         this.prev_node.open = false;
       }
-      console.log("APP changeFile", node.path);
       this.editorState["file"] = node.path;
       node.open = true;
       this.prev_node = node;
-      console.log("changeFile breakpoints", this.breakpoints);
       this.editorState["breakpoints"] = this.breakpoints[node.path];
       if (node.path === this.lineMark.file) {
         this.editorState["line"] = this.lineMark.line;
@@ -937,7 +896,6 @@ export default {
       this.editorState = JSON.parse(JSON.stringify(this.editorState));
     },
     toggleFolder(node) {
-      console.log("APP toggleFolder", node);
       node.is_open = !node.is_open;
     },
   },

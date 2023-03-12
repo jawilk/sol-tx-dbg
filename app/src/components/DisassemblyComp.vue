@@ -1,24 +1,28 @@
 <template>
-      <table class="dis-table">
-        <tr class="header">
-          <th class="table-entry">addr</th>
-          <th class="table-entry2">inst</th>
-          <th class="table-entry">mnem</th>
-        </tr>
-        <tr v-for="item in disData" :key="item.addr" :class="{ 'dis-background': item.addr.includes('->')}">
-          <td>{{ item.addr }}</td>
-          <td>{{ item.inst }}</td>
-          <td>{{ item.mnem }}</td>
-        </tr>
-      </table>
+  <table class="dis-table">
+    <tr class="header">
+      <th class="table-entry">addr</th>
+      <th class="table-entry2">inst</th>
+      <th class="table-entry">mnem</th>
+    </tr>
+    <tr
+      v-for="item in disData"
+      :key="item.addr"
+      :class="{ 'dis-background': item.addr.includes('->') }"
+    >
+      <td>{{ item.addr }}</td>
+      <td>{{ item.inst }}</td>
+      <td>{{ item.mnem }}</td>
+    </tr>
+  </table>
 </template>
   
   <script>
-  export default {
-    name: 'DisassemblyComp',
-    props: ['disData'],
-  }
-  </script>
+export default {
+  name: "DisassemblyComp",
+  props: ["disData"],
+};
+</script>
 
   <style>
 .header {
@@ -34,7 +38,7 @@
 }
 
 .dis-table {
-  color: #E0E4E6;
+  color: #e0e4e6;
   font-size: 13px;
 }
 

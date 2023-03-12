@@ -45,7 +45,6 @@ export default {
   },
   methods: {
     async executeCommand() {
-      console.log("execute command", this.address, this.bytes, this.format);
       switch (this.format) {
         case "pubkey": {
           const output = await this.getMemory(this.address, 32, true);
@@ -54,18 +53,16 @@ export default {
           while ((matches = this.pubkeyRegex.exec(output)) !== null) {
             byteString += matches[1].replace(/ /g, "");
           }
-          console.log("byteString:", byteString);
-          const bytes = new Uint8Array(byteString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+          const bytes = new Uint8Array(
+            byteString.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
+          );
           this.output = bs58.encode(bytes);
-          console.log("mem output:", this.output);
           break;
         }
         default:
           this.output = await this.getMemory(this.address, this.bytes);
-          console.log("mem output:", this.output);
           break;
       }
-      console.log("mem output:", this.output);
     },
   },
 };

@@ -15,7 +15,6 @@
 import { ref, shallowRef } from "vue";
 import { Codemirror } from "vue-codemirror";
 import { rust } from "@codemirror/lang-rust";
-// import { oneDark } from "@codemirror/theme-one-dark";
 import { oneDark } from "../one-dark.js";
 
 import {
@@ -104,7 +103,6 @@ export default {
   },
   methods: {
     highlightLine(line) {
-      console.log("highlightLine", line);
       const docPosition = this.view.state.doc.line(line).from;
       this.view.dispatch(
         this.getCodemirrorStates().state.update({
@@ -122,12 +120,9 @@ export default {
       try {
         const fetchResponse = await fetch(url);
         return fetchResponse;
-      } catch (ex) {
-        console.log("Error in fetch");
-      }
+      } catch (ex) {}
     },
     toggleBreakpoint(pos) {
-      console.log("is_first_breakpoint", this.is_first_breakpoint);
       let breakpoints = this.view.state.field(breakpointState);
       let hasBreakpoint = false;
       breakpoints.between(pos, pos, () => {
@@ -152,11 +147,6 @@ export default {
       );
     },
     handleBreakpoints() {
-      console.log(
-        "breakpointsEditor!",
-        this.editorState.breakpoints,
-        this.prevBreakpointsEditor
-      );
       if (this.editorState.breakpoints === undefined) {
         return;
       }
@@ -179,7 +169,6 @@ export default {
           (item) => !this.editorState.breakpoints.includes(item)
         ),
       ];
-      console.log("difference", difference);
       if (difference.length === 0) {
         return;
       }
@@ -195,11 +184,9 @@ export default {
   },
   watch: {
     editorState() {
-      console.log("(editor) file WATCHER", this.editorState, this.curFile);
       if (this.editorState.file !== this.curFile) {
         this.curFile = this.editorState.file;
         this.prevBreakpointsEditor = [];
-        console.log("(editor) NEW FILE", this.editorState);
         this.parseFile(
           this.files_url +
             "code/" +
@@ -228,16 +215,13 @@ export default {
             this.is_first_breakpoint = true;
           });
       } else {
-        console.log("(editor) ELSE Not NEW FILE", this.editorState);
         if (this.editorState.breakpoints !== undefined) {
-          console.log("DO breakpotns");
           this.handleBreakpoints();
         }
         if (
           this.editorState.updateType !== "breakpoints" &&
           this.editorState.line !== undefined
         ) {
-          console.log("DO highlightLine", this.editorState.line);
           this.highlightLine(this.editorState.line);
         }
       }
@@ -271,7 +255,6 @@ export default {
         },
       }),
     ];
-    // Codemirror EditorView instance ref
     const view = shallowRef();
     const handleReady = (payload) => {
       view.value = payload.view;
@@ -286,7 +269,6 @@ export default {
       ...breakpointGutter,
     ];
 
-    // Status is available at all times via Codemirror EditorView
     const getCodemirrorStates = () => {
       const state = view.value.state;
       const doc = state.doc;

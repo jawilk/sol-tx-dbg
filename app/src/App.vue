@@ -22,14 +22,17 @@
     </span>
     <span class="github-wrap" title="coming soon">
       <!-- <a href="https://github.com"> -->
-        <span class="icon">
-          <i class="fab fa-github github-button"></i>
-        </span>
+      <span class="icon">
+        <i class="fab fa-github github-button"></i>
+      </span>
       <!-- </a> -->
     </span>
   </div>
-  <localComp v-if="showLocal" :showLocal="showLocal"
-  @close="toggleLocalExecution" />
+  <localComp
+    v-if="showLocal"
+    :showLocal="showLocal"
+    @close="toggleLocalExecution"
+  />
   <router-view />
 </template>
 

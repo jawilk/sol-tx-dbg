@@ -37,18 +37,15 @@ export default {
       for (let i = 0; i < variables.length; i++) {
         if (variables[i].type.includes("solana_program::pubkey::Pubkey *")) {
           const output = await this.getMemory(variables[i].value, 32, false);
-          console.log("output:", output);
           let matches;
           let byteString = "";
           while ((matches = this.pubkeyRegex.exec(output)) !== null) {
             byteString += matches[1].replace(/ /g, "");
           }
-          console.log("byteString:", byteString);
           const bytes = new Uint8Array(
             byteString.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
           );
           const pubkey = bs58.encode(bytes);
-          console.log("pubkey:", pubkey);
           variables[i].value = pubkey + " @ " + variables[i].value;
         }
       }

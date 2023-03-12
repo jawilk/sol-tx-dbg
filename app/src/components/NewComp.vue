@@ -5,7 +5,7 @@
       :key="comp.i"
       class="choose-comp"
       @click="choseComponent(comp)"
-      :class="{ 'deactivated': isDeactive(comp.name) }"
+      :class="{ deactivated: isDeactive(comp.name) }"
     >
       {{ comp.title }}
     </li>
@@ -62,7 +62,7 @@ export default {
   data() {
     return {
       components: components,
-      deactive: ['CallGraphComp'],
+      deactive: ["CallGraphComp"],
     };
   },
   methods: {
