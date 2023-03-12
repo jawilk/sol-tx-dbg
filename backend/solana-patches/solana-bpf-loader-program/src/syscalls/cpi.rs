@@ -898,8 +898,6 @@ fn call<'a, 'b: 'a>(
     signers_seeds_len: u64,
     memory_mapping: &mut MemoryMapping,
 ) -> Result<u64, EbpfError<BpfError>> {
-    println!("!!!! instruction_addr: {}", instruction_addr);
-
     let mut invoke_context = syscall.get_context_mut()?;
     invoke_context
         .get_compute_meter()
@@ -908,7 +906,6 @@ fn call<'a, 'b: 'a>(
     // Translate and verify caller's data
     let instruction =
         syscall.translate_instruction(instruction_addr, memory_mapping, *invoke_context)?;
-    println!("instruction: {:?}", instruction);
     let transaction_context = &invoke_context.transaction_context;
     let instruction_context = transaction_context
         .get_current_instruction_context()
