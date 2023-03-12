@@ -9,41 +9,45 @@ https://sol-tx.wtf
 # Setup
 Init  
 ```
-~: git clone https://github.com/jawilk/sol-tx-dbg
-~: cd sol-tx-dbg
-~: git submodule update --init --recursive
-~: git lfs pull
+git clone https://github.com/jawilk/sol-tx-dbg
+cd sol-tx-dbg
+git submodule update --init --recursive
+git lfs pull
 ```
 Build app  
 ```
-:~ cd app
-~: yarn install
-~: yarn serve --port 8084
+cd app
+yarn install
 ```
 Build poc  
 ```
-~: cd backend/poc
-~: cargo build
+cd backend/poc
+cargo build
 ```
 Build server  
 ```
-~: cd backend/server
-~: cargo build
+cd backend/server
+cargo build
 ```
 Install websockify  
 ```
-~: git clone --branch sol-tx-dbg https://github.com/jawilk/websockify
-~: cd websockify
-~: python3 setup.py install
+git clone --branch sol-tx-dbg https://github.com/jawilk/websockify
+cd websockify
+python3 setup.py install
 ```
 # Start  
-(i) Server  
+App  
 ```
-~: cd backend/server
-~: cargo run
+cd app
+yarn serve --port 8084
 ```
-(ii) Poc  
+Server  
 ```
-~: cd backend/websockify
-~: websockify :9007 -v --token-plugin PortOnly --token-source temp.txt
+cd backend/server
+cargo run
+```
+Poc  
+```
+cd backend/websockify
+websockify :9007 --token-plugin PortOnly --token-source temp.txt
 ```
