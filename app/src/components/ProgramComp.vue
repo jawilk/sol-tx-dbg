@@ -57,6 +57,22 @@
           <div v-if="item.name !== 'editor'" class="panel-header">
             <p class="title">{{ item.name }}</p>
             <div title="drag me" class="vue-draggable-handle">&harr;</div>
+            <div
+              title="update panel"
+              v-if="
+                ['disassembly', 'registers', 'variables'].includes(item.name)
+              "
+              class="diff-slider"
+            >
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  v-model="shouldUpdate[item.name]"
+                  @click="toggleUpdatePanel(item.name)"
+                />
+                <span class="slider round"></span>
+              </label>
+            </div>
             <div class="delete-container" title="remove">
               <span class="delete" @click="removePanel(item.i)">x</span>
             </div>
@@ -178,6 +194,22 @@ const startLayout = [
   },
 ];
 
+// const treeData = {
+// {
+//         name: "Code",
+//         children: [
+//           {
+//             name: "child folder 1",
+//             children: [
+
+//               { name: "hello" },
+//               { name: "wat" },
+
+//             ]
+//           },
+//           }
+//       };
+
 export default {
   name: "App",
   components: {
@@ -226,6 +258,7 @@ export default {
       rust_version: "",
       solana_version: "",
       borsh_version: "",
+      shouldUpdate: { disassembly: true, variables: true, registers: true },
     };
   },
   beforeCreate() {
@@ -236,9 +269,8 @@ export default {
     this.cleanup();
   },
   async mounted() {
-    if (!this.$route.query.tx_hash) {
-      this.status = "Starting CPI...";
-    } else {
+    if (!this.$route.query.tx_hash) this.status = "Starting CPI...";
+    else {
       this.status = "Starting...";
       this.tx_hash = this.$route.query.tx_hash;
       this.inst_nr = this.$route.query.inst_nr;
@@ -250,14 +282,14 @@ export default {
     // query params
     this.uuid = this.$route.query.uuid;
     this.program_id = this.$route.query.program_id;
-    if (this.$route.query.program_name) {
+
+    if (this.$route.query.program_name)
       this.program_name = this.$route.query.program_name;
-    } else {
-      this.program_name = this.program_id;
-    }
-    if (!this.$route.query.tx_hash) {
+    else this.program_name = this.program_id;
+
+    if (!this.$route.query.tx_hash)
       this.LLDB["websocket"]["url"] = this.websocket_url + this.uuid;
-    } else {
+    else {
       this.LLDB["websocket"]["url"] =
         this.websocket_url +
         this.uuid +
@@ -266,6 +298,7 @@ export default {
         "&inst_nr=" +
         this.inst_nr;
     }
+
     await this.getTree();
     await this.loadElf();
     // CPI hook
@@ -283,16 +316,30 @@ export default {
     this.supported_programs = await resonse.json();
     this.isDebuggerConnected = true;
     this.isActive = true;
-    if (this.status === "Starting CPI...") {
-      this.status = "Running (CPI)";
-    } else {
-      this.status = "Running";
-    }
+
+    if (this.status === "Starting CPI...") this.status = "Running (CPI)";
+    else this.status = "Running";
+
     // update panels
     await this.updateEditor();
   },
   methods: {
-    // Prevent text selection while dragging
+    toggleUpdatePanel(panel) {
+      switch (panel) {
+        case "disassembly":
+          this.shouldUpdate["disassembly"] = !this.shouldUpdate["disassembly"];
+          break;
+        case "registers":
+          this.shouldUpdate["registers"] = !this.shouldUpdate["registers"];
+          break;
+        case "variables":
+          this.shouldUpdate["variables"] = !this.shouldUpdate["variables"];
+          break;
+        default:
+          break;
+      }
+    },
+    // To prevent text selection while dragging
     onDragStart() {
       this.isDragging = true;
     },
@@ -306,7 +353,6 @@ export default {
       }
     },
     cleanup() {
-      // this.LLDB._exit(0);
       this.LLDB.exports = null;
       this.LLDB = null;
     },
@@ -359,9 +405,7 @@ export default {
       const wasm_url = this.files_url + "lldb.wasm";
       return new lldbModule({
         locateFile(path) {
-          if (path.endsWith(`.wasm`)) {
-            return wasm_url;
-          }
+          if (path.endsWith(`.wasm`)) return wasm_url;
           return path;
         },
       });
@@ -416,9 +460,8 @@ export default {
       this.LLDB._free(res);
     },
     async executeLLDBCommand(command) {
-      if (!this.isActive) {
+      if (!this.isActive)
         return "please wait for the current action to finish or restart";
-      }
       let resPtr = await this.LLDB.ccall(
         "execute_command",
         "number",
@@ -431,9 +474,8 @@ export default {
       return lldbOutput;
     },
     async getMemory(address, bytes, is_user) {
-      if (is_user && !this.isActive) {
+      if (is_user && !this.isActive)
         return "please wait for the current action to finish or restart";
-      }
       const command = "mem read " + address + " -c " + bytes;
       let resPtr = await this.LLDB.ccall(
         "execute_command",
@@ -460,7 +502,7 @@ export default {
       );
       let url;
       const p = this.supported_programs.find((obj) => obj.id === pubkey);
-      if (p) {
+      if (p)
         url =
           this.cpi_url +
           "?uuid=" +
@@ -469,22 +511,15 @@ export default {
           p.name +
           "&program_id=" +
           pubkey;
-      } else {
-        url = this.cpi_url + "/not-supported?program_id=" + pubkey;
-      }
+      else url = this.cpi_url + "/not-supported?program_id=" + pubkey;
+
       this.status = "In CPI";
       window.open(url);
       // This will block till cpi has finished
-      if (type === "continue") {
-        await this.continue_(false);
-      } else if (type === "next") {
-        await this.next(false);
-      } else if (type === "stepIn") {
-        await this.stepIn(false);
-      }
-      if (this.status !== "Finished") {
-        this.status = "Running";
-      }
+      if (type === "continue") await this.continue_(false);
+      else if (type === "next") await this.next(false);
+      else if (type === "stepIn") await this.stepIn(false);
+      if (this.status !== "Finished") this.status = "Running";
     },
     async check_finished(should_update) {
       if (this.status === "Finished") {
@@ -561,9 +596,8 @@ export default {
         { async: true }
       );
       // CPI
-      if (is_before_cpi === 1) {
-        await this.handleCpi("next");
-      } else if (is_before_cpi === 2) {
+      if (is_before_cpi === 1) await this.handleCpi("next");
+      else if (is_before_cpi === 2) {
         await this.handleCpi("continue");
         await this.LLDB.ccall("request_stepIn_with_cpi", "boolean", [], [], {
           async: true,
@@ -580,6 +614,7 @@ export default {
         [],
         { async: true }
       );
+
       // CPI
       if (is_before_cpi === true) {
         await this.handleCpi("continue");
@@ -616,9 +651,8 @@ export default {
         request,
         "request_stackTrace"
       );
-      if (responseJSON.body.stackFrames[0].line === 0) {
-        return;
-      } else {
+      if (responseJSON.body.stackFrames[0].line === 0) return;
+      else {
         let path = responseJSON.body.stackFrames[0].source.path;
         if (path) {
           let file = this.sanitizeFileName(path);
@@ -629,22 +663,21 @@ export default {
             this.lineMark["file"] = file;
             this.lineMark["line"] = responseJSON.body.stackFrames[0].line;
             let breakpointsEditor;
-            if (this.breakpoints[this.editorState.file] === undefined) {
+            if (this.breakpoints[this.editorState.file] === undefined)
               breakpointsEditor = [];
-            } else {
+            else
               breakpointsEditor = JSON.parse(
                 JSON.stringify(this.breakpoints[this.editorState.file])
               );
-            }
             this.editorState.updateType = "all";
             this.editorState["breakpoints"] = breakpointsEditor;
             this.editorState = JSON.parse(JSON.stringify(this.editorState));
           }
         }
       }
-      await this.disassemble();
-      await this.getRegisters();
-      await this.getVariables();
+      if (this.shouldUpdate.disassembly) await this.disassembly();
+      if (this.shouldUpdate.registers) await this.getRegisters();
+      if (this.shouldUpdate.variables) await this.getVariables();
     },
     async getVariables() {
       var request = {
@@ -678,7 +711,7 @@ export default {
       this.registers = registersParsed;
       this.LLDB._free(resPtr);
     },
-    async disassemble() {
+    async disassembly() {
       let resPtr = await this.LLDB.ccall(
         "execute_command",
         "number",
@@ -691,13 +724,15 @@ export default {
       res[0] = res[0].slice(3); // Remove leading arrow
       let data = [];
       for (let line of res) {
+        if (!line.includes("0x")) continue;
+
         try {
           let addr = line.split(" <")[0];
           let inst = line.split(": ")[1].slice(0, 23);
           let mnem = line.split(inst)[1];
           data.push({ addr: addr, inst: inst.toUpperCase(), mnem: mnem });
         } catch (e) {
-          console.log(e);
+          console.log("error", e);
         }
       }
       this.disData = data;
@@ -708,33 +743,30 @@ export default {
       if (
         solana_version === "solana-program-1.10.33" ||
         solana_version === "solana-program-1.10.41"
-      ) {
+      )
         line = 304;
-      } else if (solana_version === "solana-program-1.9.28") {
-        line = 78;
-      }
+      else if (solana_version === "solana-program-1.9.28") line = 78;
+
       await this.LLDB.ccall("set_cpi_line", null, ["number"], [line], {
         async: true,
       });
     },
     // stack trace -> editor
     sanitizeFileName(fileName) {
-      if (fileName.includes(this.solana_version)) {
+      if (fileName.includes(this.solana_version))
         fileName =
           "code/sdk/" +
           this.solana_version +
           fileName.split(this.solana_version)[1];
-      } else if (fileName.includes("rust-own")) {
+      else if (fileName.includes("rust-own"))
         fileName =
           "code/" + this.rust_version + fileName.split("rust-own/rust")[1];
-      } else if (fileName.includes(this.borsh_version)) {
+      else if (fileName.includes(this.borsh_version))
         fileName =
           "code/" + this.borsh_version + fileName.split(this.borsh_version)[1];
-      } else if (fileName.includes("/program/src/")) {
+      else if (fileName.includes("/program/src/"))
         fileName = "code/program/" + fileName.split("/program/")[1];
-      } else {
-        fileName = undefined;
-      }
+      else fileName = undefined;
       return fileName;
     },
     getEndLine() {
@@ -754,13 +786,10 @@ export default {
       );
       this.tree = await res.json();
       for (const c of this.tree.children) {
-        if (c.name.includes("rust")) {
-          this.rust_version = c.name;
-        } else if (c.name.includes("borsh")) {
-          this.borsh_version = c.name;
-        } else if (c.name.includes("sdk")) {
+        if (c.name.includes("rust")) this.rust_version = c.name;
+        else if (c.name.includes("borsh")) this.borsh_version = c.name;
+        else if (c.name.includes("sdk"))
           this.solana_version = c.children[0].name;
-        }
       }
       this.setCpiLine(this.solana_version);
     },
@@ -776,9 +805,8 @@ export default {
         path =
           "/home/wj/projects/rust-own/rust/" +
           path.split(this.rust_version + "/")[1];
-      } else {
-        path = this.program_real_path + path.split("/program/")[1];
-      }
+      } else path = this.program_real_path + path.split("/program/")[1];
+
       return path;
     },
     // Editor
@@ -796,11 +824,10 @@ export default {
         preBreakpoints = this.breakpoints[file].slice();
       }
       const index = preBreakpoints.indexOf(line);
-      if (index !== -1) {
-        preBreakpoints.splice(index, 1);
-      } else {
-        preBreakpoints.push(line);
-      }
+
+      if (index !== -1) preBreakpoints.splice(index, 1);
+      else preBreakpoints.push(line);
+
       const breakpointsReq = preBreakpoints.map((num) => {
         return { line: num };
       });
@@ -826,9 +853,9 @@ export default {
           this.editorState.breakpoints !== undefined &&
           this.editorState.breakpoints.length === 0 &&
           this.breakpoints[file].length === 0
-        ) {
+        )
           return;
-        }
+
         this.editorState.updateType = "breakpoints";
         this.editorState.breakpoints = this.breakpoints[this.editorState.file];
         this.editorState = JSON.parse(JSON.stringify(this.editorState));
@@ -836,12 +863,8 @@ export default {
     },
 
     load_file(name) {
-      if (name == this.editorState.file) {
-        return;
-      }
-      if (this.prev_node) {
-        this.prev_node.open = false;
-      }
+      if (name == this.editorState.file) return;
+      if (this.prev_node) this.prev_node.open = false;
       const name_split = name.split("/");
       this.tree.is_open = true;
       let node = this.tree;
@@ -852,9 +875,7 @@ export default {
           if (i.name === name_split[count]) {
             i.is_open = true;
             count++;
-            if (i.children.length === 0) {
-              run = false;
-            }
+            if (i.children.length === 0) run = false;
             node = i;
             break;
           }
@@ -867,18 +888,17 @@ export default {
 
     // Tree
     changeFile(node) {
-      if (this.prev_node) {
-        this.prev_node.open = false;
-      }
+      if (this.prev_node) this.prev_node.open = false;
+
       this.editorState["file"] = node.path;
       node.open = true;
       this.prev_node = node;
       this.editorState["breakpoints"] = this.breakpoints[node.path];
-      if (node.path === this.lineMark.file) {
+
+      if (node.path === this.lineMark.file)
         this.editorState["line"] = this.lineMark.line;
-      } else {
-        this.editorState["line"] = undefined;
-      }
+      else this.editorState["line"] = undefined;
+
       this.editorState = JSON.parse(JSON.stringify(this.editorState));
     },
     toggleFolder(node) {
@@ -982,6 +1002,66 @@ export default {
   top: -10px;
   right: 50%;
   cursor: pointer;
+}
+
+.diff-slider {
+  position: absolute;
+  top: -5px;
+  right: 15%;
+  margin: 10px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 17px;
+  height: 9px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: -2px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #e06c75;
+  transition: 0.4s;
+  border-radius: 14px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 6px;
+  width: 6px;
+  left: 2px;
+  bottom: 3px;
+  background-color: #fff;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #14f195;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196f3;
+}
+
+input:checked + .slider:before {
+  transform: translateX(6px);
+}
+
+.round {
+  border-radius: 34px;
 }
 
 .delete-container {

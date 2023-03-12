@@ -67,9 +67,7 @@ export default {
   },
   methods: {
     choseComponent(comp) {
-      if (comp.name === "CallGraphComp") {
-        return;
-      }
+      if (comp.name === "CallGraphComp") return;
       this.$emit("choseComp", this.id, comp);
     },
     isDeactive(compName) {

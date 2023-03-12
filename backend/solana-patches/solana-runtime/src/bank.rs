@@ -4075,7 +4075,6 @@ impl Bank {
         error_counters: &mut TransactionErrorMetrics,
         log_messages_bytes_limit: Option<usize>,
     ) -> TransactionExecutionResult {
-        println!("execute_loaded_transaction");
         let mut get_executors_time = Measure::start("get_executors_time");
         let executors = self.get_executors(&loaded_transaction.accounts);
         get_executors_time.stop();
@@ -4119,7 +4118,6 @@ impl Bank {
         let mut executed_units = 0u64;
 
         let mut process_message_time = Measure::start("process_message_time");
-        println!("before MessageProcessor::process_message");
         let process_result = MessageProcessor::process_message(
             &self.builtin_programs.vec,
             tx.message(),
@@ -4266,13 +4264,10 @@ impl Bank {
         account_overrides: Option<&AccountOverrides>,
         log_messages_bytes_limit: Option<usize>,
     ) -> LoadAndExecuteTransactionsOutput {
-    println!("load_and_execute_transactions");
         let sanitized_txs = batch.sanitized_transactions();
-            println!("load_and_execute_transactions1");
         debug!("processing transactions: {}", sanitized_txs.len());
         inc_new_counter_info!("bank-process_transactions", sanitized_txs.len());
         let mut error_counters = TransactionErrorMetrics::default();
-    println!("load_and_execute_transactions2");
         let retryable_transaction_indexes: Vec<_> = batch
             .lock_results()
             .iter()
@@ -4308,7 +4303,6 @@ impl Bank {
                 Ok(_) => None,
             })
             .collect();
-    println!("load_and_execute_transactions3");
         let mut check_time = Measure::start("check_transactions");
         let check_results = self.check_transactions(
             sanitized_txs,
@@ -4339,17 +4333,14 @@ impl Bank {
             .iter_mut()
             .zip(sanitized_txs.iter())
             .map(|(accs, tx)| match accs {
-                (Err(e), _nonce) => {                    println!("load_and_execute_transactions4.0");TransactionExecutionResult::NotExecuted(e.clone())},
+                (Err(e), _nonce) => TransactionExecutionResult::NotExecuted(e.clone()),
                 (Ok(loaded_transaction), nonce) => {
-                    println!("load_and_execute_transactions4");
-                    let mut feature_set_clone_time = Measure::start("feature_set_clone");
                     let feature_set = self.feature_set.clone();
                     feature_set_clone_time.stop();
                     saturating_add_assign!(
                         timings.execute_accessories.feature_set_clone_us,
                         feature_set_clone_time.as_us()
                     );
-    println!("load_and_execute_transactions4.1");
                     let compute_budget = if let Some(compute_budget) = self.compute_budget {
                         compute_budget
                     } else {
@@ -4375,7 +4366,6 @@ impl Bank {
                         }
                         compute_budget
                     };
-    println!("load_and_execute_transactions5");
                     self.execute_loaded_transaction(
                         tx,
                         loaded_transaction,
@@ -4391,7 +4381,6 @@ impl Bank {
                 }
             })
             .collect();
-                    println!("load_and_execute_transactions7");
         execution_time.stop();
 
         debug!(

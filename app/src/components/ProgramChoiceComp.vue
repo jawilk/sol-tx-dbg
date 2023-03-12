@@ -49,11 +49,8 @@ export default {
   },
   computed: {
     pluralize() {
-      if (this.instData.length > 1) {
-        return "s";
-      } else {
-        return "";
-      }
+      if (this.instData.length > 1) return "s";
+      else return "";
     },
   },
   watch: {

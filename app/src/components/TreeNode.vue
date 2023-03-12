@@ -44,22 +44,17 @@ export default {
   watch: {
     focus() {
       this.$nextTick(function () {
-        if (this.node.open) {
+        if (this.node.open)
           this.$refs.nodeFocus.scrollIntoView({ behavior: "smooth" });
-        }
       });
     },
   },
   methods: {
     toggle() {
-      if (this.isFolder) {
-        this.$emit("toggleFolder", this.node);
-      }
+      if (this.isFolder) this.$emit("toggleFolder", this.node);
     },
     click(node) {
-      if (node.name.includes(".rs")) {
-        this.$emit("changeFile", node);
-      }
+      if (node.name.includes(".rs")) this.$emit("changeFile", node);
     },
   },
 };

@@ -67,9 +67,9 @@ const breakpointState = StateField.define({
 
     for (let e of transaction.effects) {
       if (e.is(breakpointEffect)) {
-        if (e.value.on) {
+        if (e.value.on)
           set = set.update({ add: [breakpointMarker.range(e.value.pos)] });
-        } else set = set.update({ filter: (from) => from != e.value.pos });
+        else set = set.update({ filter: (from) => from != e.value.pos });
       }
     }
 
@@ -139,9 +139,8 @@ export default {
             y: "center",
           }),
         ];
-      } else {
-        effects = [breakpointEffect.of({ pos, on: !hasBreakpoint })];
-      }
+      } else effects = [breakpointEffect.of({ pos, on: !hasBreakpoint })];
+
       this.view.dispatch(
         this.getCodemirrorStates().state.update({
           effects: effects,
@@ -149,9 +148,7 @@ export default {
       );
     },
     handleBreakpoints() {
-      if (this.editorState.breakpoints === undefined) {
-        return;
-      }
+      if (this.editorState.breakpoints === undefined) return;
       if (this.prevBreakpointsEditor === null) {
         this.editorState.breakpoints.forEach((l) => {
           const docPosition = this.view.state.doc.line(l).from;
@@ -171,9 +168,7 @@ export default {
           (item) => !this.editorState.breakpoints.includes(item)
         ),
       ];
-      if (difference.length === 0) {
-        return;
-      }
+      if (difference.length === 0) return;
       difference.forEach((l) => {
         const docPosition = this.view.state.doc.line(l).from;
         this.toggleBreakpoint(docPosition);
@@ -208,24 +203,22 @@ export default {
               ],
             });
             this.view.setState(newState);
-            if (this.editorState.breakpoints !== undefined) {
+            if (this.editorState.breakpoints !== undefined)
               this.handleBreakpoints();
-            }
-            if (this.editorState.line !== undefined) {
+
+            if (this.editorState.line !== undefined)
               this.highlightLine(this.editorState.line);
-            }
+
             this.is_first_breakpoint = true;
           });
       } else {
-        if (this.editorState.breakpoints !== undefined) {
+        if (this.editorState.breakpoints !== undefined)
           this.handleBreakpoints();
-        }
         if (
           this.editorState.updateType !== "breakpoints" &&
           this.editorState.line !== undefined
-        ) {
+        )
           this.highlightLine(this.editorState.line);
-        }
       }
     },
   },

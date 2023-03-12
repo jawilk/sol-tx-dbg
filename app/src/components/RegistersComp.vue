@@ -40,13 +40,10 @@ export default {
         return;
       }
       this.registers.forEach((register, index) => {
-        if (register.value !== this.prevRegisters[index].value) {
+        if (register.value !== this.prevRegisters[index].value)
           this.updatedIndices.push(index);
-        }
       });
-      if (this.updatedIndices.length > 0) {
-        this.flashCells();
-      }
+      if (this.updatedIndices.length > 0) this.flashCells();
       this.prevRegisters = JSON.parse(JSON.stringify(this.registers));
     },
   },
