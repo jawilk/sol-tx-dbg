@@ -29,8 +29,8 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <iostream>
-#include <string.h>
 #include <regex>
+#include <string.h>
 
 #define PUBKEY_LEN 32
 
@@ -93,15 +93,11 @@ int main() {
 
 // API helper (JSON)
 void read_JSON(std::string json, llvm::json::Object &object) {
-  cout << "read_JSON: " << json << "\n";
-
   llvm::StringRef json_sref(json);
 
   llvm::Expected<llvm::json::Value> json_value = llvm::json::parse(json_sref);
-  if (!json_value) {
-    cout << "ERROR PARSING JSON: " << json << "\n";
+  if (!json_value)
     auto error = json_value.takeError();
-  }
 
   object = *json_value->getAsObject();
 }
@@ -118,18 +114,9 @@ const char *build_JSON_str(const llvm::json::Value &json) {
 
 // API
 const char *execute_command(const char *command) {
-  cout << "execute_command: " << command << "\n";
   SBCommandReturnObject result;
   SBCommandInterpreter sb_interpreter = g_vsc.debugger.GetCommandInterpreter();
   sb_interpreter.HandleCommand(command, result, false);
-  // cout << "OUTPUT LLDB: " << result.GetOutput() << "\n";
-
-  cout << "execute_command Frame ID: "
-       << g_vsc.target.GetProcess()
-              .GetSelectedThread()
-              .GetSelectedFrame()
-              .GetFrameID()
-       << "\n";
 
   return strdup(result.GetOutput());
 }
@@ -157,16 +144,7 @@ int should_terminate() {
   return 0;
 }
 
-// TODO
-// void create_symbol_bp(const char* symbol) {
-//    SBBreakpoint bp = g_vsc.target.BreakpointCreateByName(symbol);
-//    cout << bp.GetID() << "\n";
-//}
-
-void set_cpi_line(uint32_t line) {
-  cout << "set_cpi_line: " << line << "\n";
-  CPI_LINE = line;
-}
+void set_cpi_line(uint32_t line) { CPI_LINE = line; }
 
 bool is_invoke_signed_unchecked() {
   SBError error;
@@ -194,7 +172,6 @@ bool is_invoke_signed_unchecked() {
                    .GetLine();
         if (line == CPI_LINE) {
           IS_CPI = true;
-          cout << "IS invoke_signed_unchecked\n";
           return true;
         }
       }
@@ -203,83 +180,16 @@ bool is_invoke_signed_unchecked() {
   return false;
 }
 
-// bool is_sol_log(string& sol_log_msg) {
-//     if
-//     (g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().IsValid())
-//     {
-//         if
-//         (g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().IsValid())
-//         {
-//             string func_name =
-//             g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().GetName();
-// 	    if (func_name.find("sol_log") != std::string::npos) {
-//                 if
-//                 (g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine()
-//                 == 100) {
-//                     SBValue var =
-//                     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().FindVariable("message");
-//                     SBValue v = var.GetChildAtIndex(0);
-// 	            int length = atoi(var.GetChildAtIndex(1).GetValue());
-//                     sol_log_msg += "sol_log_ -> ";
-//                     sol_log_msg.append(&(v.GetSummary()[1]), length);
-//                     sol_log_msg += "\n\n";
-//                     return true;
-// 		}
-//   	    }
-//         }
-//     }
-//     return false;
-// }
-
-// void till_next_line_next(uint32_t line_before, string& sol_log_msg) {
-//     uint32_t func_start, now;
-//     func_start =
-//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().GetStartAddress().GetLineEntry().GetLine();
-//     now =
-//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
-
-//     while ((now == func_start || now == line_before) && should_terminate() ==
-//     0) {
-//         if
-//         (!g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().IsValid())
-//         {
-//             break;
-//         }
-//         sol_log_msg += request_next();
-//         now =
-//         g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
-//     }
-// }
-
-// void till_not_def_step_in(string& sol_log_msg) {
-//     int error_rec = should_terminate();
-//     uint32_t func_start, now;
-//     if
-//     (!g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().IsValid())
-//         return;
-//     func_start =
-//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().GetStartAddress().GetLineEntry().GetLine();
-//     now =
-//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
-//     if (now == func_start && error_rec == 0)
-//         sol_log_msg += request_stepIn();
-// }
-
 void till_next_line(uint32_t line_before, int type) {
-  cout << "till_next_line\n";
   uint32_t func_start, now;
 
-  SBFrame frame = g_vsc.target.GetProcess()
-                      .GetSelectedThread()
-                      .GetSelectedFrame();
+  SBFrame frame =
+      g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame();
 
   if (!frame.GetLineEntry().IsValid())
     return;
 
-  func_start = frame.GetFunction()
-                   .GetStartAddress()
-                   .GetLineEntry()
-                   .GetLine();
+  func_start = frame.GetFunction().GetStartAddress().GetLineEntry().GetLine();
   now = frame.GetLineEntry().GetLine();
 
   while ((now == func_start || now == line_before) && should_terminate() == 0) {
@@ -291,9 +201,7 @@ void till_next_line(uint32_t line_before, int type) {
     else if (type == 1)
       request_next_with_cpi();
 
-    frame = g_vsc.target.GetProcess()
-                      .GetSelectedThread()
-                      .GetSelectedFrame();
+    frame = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame();
     if (!frame.GetLineEntry().IsValid())
       break;
     now = frame.GetLineEntry().GetLine();
@@ -317,40 +225,30 @@ bool request_stepIn_with_cpi() {
 }
 
 int request_next_with_cpi() {
-  cout << "request_next_with_cpi (wasm)" << endl;
   uint32_t line_before;
   string func_name_before;
   SBFrame frame;
 
-  frame = g_vsc.target.GetProcess()
-                      .GetSelectedThread()
-                      .GetSelectedFrame();
+  frame = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame();
 
   line_before = frame.GetLineEntry().GetLine();
   func_name_before = frame.GetFunctionName();
-  cout << "function name (before): " << func_name_before << endl;
 
   addr_t pc = frame.GetPC();
   SBAddress address(pc, g_vsc.target);
-   lldb::SBInstruction instruction = g_vsc.target.ReadInstructions(address, 1).GetInstructionAtIndex(0);
-  cout << "func Current instruction: " << instruction.GetMnemonic(g_vsc.target) << endl;
+  lldb::SBInstruction instruction =
+      g_vsc.target.ReadInstructions(address, 1).GetInstructionAtIndex(0);
   string next_mnem = instruction.GetMnemonic(g_vsc.target);
 
-  const char* next_line_inst = execute_command("dis -p -c 1");
+  const char *next_line_inst = execute_command("dis -p -c 1");
   string insts = string(next_line_inst);
-  free((void*)next_line_inst);
+  free((void *)next_line_inst);
   if (insts.find("goto") != string::npos) {
-    cout << "goto NEXT\n";
-      g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr,
-    LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
+    g_vsc.target.GetProcess().GetSelectedThread().StepInto(
+        nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
     uint32_t func_start, now;
-    frame = g_vsc.target.GetProcess()
-                      .GetSelectedThread()
-                      .GetSelectedFrame();
-    func_start = frame.GetFunction()
-                   .GetStartAddress()
-                   .GetLineEntry()
-                   .GetLine();
+    frame = g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame();
+    func_start = frame.GetFunction().GetStartAddress().GetLineEntry().GetLine();
     now = frame.GetLineEntry().GetLine();
     if (now == func_start)
       g_vsc.target.GetProcess().GetSelectedThread().StepInto(
@@ -360,20 +258,10 @@ int request_next_with_cpi() {
     return 0;
     // Call
   } else if (insts.find("call") != string::npos) {
-      g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr,
-    LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
-    SBFrame f = g_vsc.target.GetProcess()
-                              .GetSelectedThread()
-                              .GetSelectedFrame();
-      cout << "num ranges: " << f.GetFrameBlock().GetNumRanges() << endl;
-      printf("block end: 0x%llx\n", f.GetFrameBlock().GetRangeEndAddress(0).GetLoadAddress(g_vsc.target));
-    printf("function end: 0x%llx\n", f.GetFunction().GetEndAddress().GetLoadAddress(g_vsc.target));
-  // string func_name_after = g_vsc.target.GetProcess()
-  //                              .GetSelectedThread()
-  //                              .GetSelectedFrame()
-  //                              .GetFunctionName();
-
-  // if (is_call) {// && (func_name_before != func_name_after)) {
+    g_vsc.target.GetProcess().GetSelectedThread().StepInto(
+        nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
+    SBFrame f =
+        g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame();
     SBFunction function = g_vsc.target.GetProcess()
                               .GetSelectedThread()
                               .GetSelectedFrame()
@@ -384,182 +272,113 @@ int request_next_with_cpi() {
       string mnem = instruction.GetMnemonic(g_vsc.target);
       if (mnem == "exit") {
         addr_t addr = instruction.GetAddress().GetLoadAddress(g_vsc.target);
-        printf("exit address: 0x%llx", addr);
         string c = "b -o true -a " + to_string(addr);
-        const char* ret = execute_command(c.c_str());
-        free((void*)ret);
-    if (request_continue_with_cpi()) {
-      if (func_name_before.find("invoke_signed_unchecked") != std::string::npos || func_name_before.find("invoke_signed") != std::string::npos) {
-        cout << "func name before was invoke_signed_unchecked: " << func_name_before << endl;
-        return 1;
-      }
-      else {
-        cout << "func name smth else: " << func_name_before << endl;
-        return 2;
+        const char *ret = execute_command(c.c_str());
+        free((void *)ret);
+        if (request_continue_with_cpi()) {
+          if (func_name_before.find("invoke_signed_unchecked") !=
+                  std::string::npos ||
+              func_name_before.find("invoke_signed") != std::string::npos) {
+            return 1;
+          } else {
+            return 2;
+          }
+        }
+        // out
+        g_vsc.target.GetProcess().GetSelectedThread().StepInto(
+            nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
+        till_next_line(line_before, 1);
+        if (is_invoke_signed_unchecked()) {
+          if (func_name_before.find("invoke_signed_unchecked") !=
+                  std::string::npos ||
+              func_name_before.find("invoke_signed") != std::string::npos) {
+            return 1;
+          } else {
+            return 2;
+          }
+        }
+        break;
       }
     }
-    // out
-    g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr,
-    LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
-    till_next_line(line_before, 1);
-    if (is_invoke_signed_unchecked()) {
-      if (func_name_before.find("invoke_signed_unchecked") != std::string::npos || func_name_before.find("invoke_signed") != std::string::npos) {
-        cout << "func name before was invoke_signed_unchecked: " << func_name_before << endl;
-        return 1;
-      }
-      else {
-        cout << "func name smth else: " << func_name_before << endl;
-        return 2;
-      }
-    }
-    cout << "function name (END): " << g_vsc.target.GetProcess()
-                              .GetSelectedThread()
-                              .GetSelectedFrame().GetFunctionName() << endl;
-    break;
-    }
-    // And next line (goto)
-    // g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr,
-    // LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
-    }
-  // Normal
+    // Normal
   } else {
-    // TODO exit vs normal, if normal but change func name -> like call
-    cout << "NORMAL next\n";
     g_vsc.target.GetProcess().GetSelectedThread().StepOver(eOnlyThisThread,
-                                                         g_error);
+                                                           g_error);
     auto line_entry = g_vsc.target.GetProcess()
-            .GetSelectedThread()
-            .GetSelectedFrame().GetLineEntry();
+                          .GetSelectedThread()
+                          .GetSelectedFrame()
+                          .GetLineEntry();
     if (!line_entry.GetFileSpec().IsValid()) {
-      cout << "FRAME filespec NOT valid (dis)\n";
-    SBFrame f = g_vsc.target.GetProcess()
-                              .GetSelectedThread()
-                              .GetSelectedFrame();
-    string dis = g_vsc.target.GetProcess()
-                              .GetSelectedThread()
-                              .GetSelectedFrame().Disassemble();
+      SBFrame f =
+          g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame();
+      string dis = g_vsc.target.GetProcess()
+                       .GetSelectedThread()
+                       .GetSelectedFrame()
+                       .Disassemble();
       std::regex regex("0x[\\da-fA-F]+");
-    std::sregex_iterator matches(dis.begin(), dis.end(), regex);
-    std::sregex_iterator last_match;
-    for (; matches != std::sregex_iterator(); ++matches) {
+      std::sregex_iterator matches(dis.begin(), dis.end(), regex);
+      std::sregex_iterator last_match;
+      for (; matches != std::sregex_iterator(); ++matches) {
         last_match = matches;
-    }
-    std::string last_address = last_match->str();
-
-    std::cout << "EXIT ADDR: " << last_address << std::endl;
-    string command = "b -o true -a " + last_address;
-    const char* ret = execute_command(command.c_str());
-    free((void*)ret);
-    g_error = g_vsc.target.GetProcess().Continue();
-    g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr,
-    LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
-    till_next_line(line_before, 1);
-
-    return 0;
-
-    } else {     
-            cout << "FRAME filespec IS VALID (NO dis)\n";
-                                               
-    till_next_line(line_before, 1);
-    if (is_invoke_signed_unchecked()) {
-      if (func_name_before.find("invoke_signed_unchecked") != std::string::npos || func_name_before.find("invoke_signed") != std::string::npos) {
-        cout << "func name before was invoke_signed_unchecked: " << func_name_before << endl;
-        return 1;
       }
-      else {
-        cout << "func name smth else: " << func_name_before << endl;
-        return 2;
+      std::string last_address = last_match->str();
+      if (last_address.find("0x") != std::string::npos) {
+        string command = "b -o true -a " + last_address;
+        const char *ret = execute_command(command.c_str());
+        free((void *)ret);
+        g_error = g_vsc.target.GetProcess().Continue();
+        g_vsc.target.GetProcess().GetSelectedThread().StepInto(
+            nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
+        till_next_line(line_before, 1);
       }
-    }
+
+      return 0;
+
+    } else {
+      till_next_line(line_before, 1);
+      if (is_invoke_signed_unchecked()) {
+        if (func_name_before.find("invoke_signed_unchecked") !=
+                std::string::npos ||
+            func_name_before.find("invoke_signed") != std::string::npos) {
+          return 1;
+        } else {
+          return 2;
+        }
+      }
     }
   }
   // No CPI
   return 0;
-  // return is_invoke_signed_unchecked();
 }
 
 bool request_continue_with_cpi() {
   g_error = g_vsc.target.GetProcess().Continue();
-
   return is_invoke_signed_unchecked();
 }
 
-// const char* request_next() {
-//     string sol_log_msg;
-//     uint32_t line_before;
-//     string func_name_before;
-//     SBFileSpec fs_before;
-//     SBBreakpoint bp;
-
-//     fs_before =
-//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetFileSpec();
-//     func_name_before =
-//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetFunction().GetName();
-//     line_before =
-//     g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame().GetLineEntry().GetLine();
-
-//     g_vsc.target.GetProcess().GetSelectedThread().StepOver(eOnlyThisThread,
-//     g_error);
-
-//     if (is_sol_log(sol_log_msg)) {
-//         // Before not in `sol_log`?
-//         if (func_name_before.find("sol_log") == std::string::npos) {
-// 	    bp = g_vsc.target.BreakpointCreateByLocation(fs_before,
-// line_before+1);
-//             g_error = g_vsc.target.GetProcess().Continue();
-//             g_vsc.target.BreakpointDelete(bp.GetID());
-//         }
-//     }
-
-//     till_next_line_next(line_before, sol_log_msg);
-//     return strdup(sol_log_msg.c_str());
-// }
-
-// const char* request_stepIn() {
-//     string sol_log_msg;
-//     g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr,
-//     LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
-//     is_sol_log(sol_log_msg);
-//     till_not_def_step_in(sol_log_msg);
-//     return strdup(sol_log_msg.c_str());
-// }
-
 bool request_stepOut() {
-    SBFunction function = g_vsc.target.GetProcess()
-                              .GetSelectedThread()
-                              .GetSelectedFrame()
-                              .GetFunction();
-    SBInstructionList instructions = function.GetInstructions(g_vsc.target);
-    for (uint32_t i = 0; i < instructions.GetSize(); i++) {
-      SBInstruction instruction = instructions.GetInstructionAtIndex(i);
-      string mnem = instruction.GetMnemonic(g_vsc.target);
-      if (mnem == "exit") {
-        addr_t addr = instruction.GetAddress().GetLoadAddress(g_vsc.target);
-        printf("exit address: 0x%llx", addr);
-        string c = "b -o true -a " + to_string(addr);
-        const char* ret = execute_command(c.c_str());
-        free((void*)ret);
+  SBFunction function = g_vsc.target.GetProcess()
+                            .GetSelectedThread()
+                            .GetSelectedFrame()
+                            .GetFunction();
+  SBInstructionList instructions = function.GetInstructions(g_vsc.target);
+  for (uint32_t i = 0; i < instructions.GetSize(); i++) {
+    SBInstruction instruction = instructions.GetInstructionAtIndex(i);
+    string mnem = instruction.GetMnemonic(g_vsc.target);
+    if (mnem == "exit") {
+      addr_t addr = instruction.GetAddress().GetLoadAddress(g_vsc.target);
+      string c = "b -o true -a " + to_string(addr);
+      const char *ret = execute_command(c.c_str());
+      free((void *)ret);
 
-        if (request_continue_with_cpi())
-          return true;
-         g_vsc.target.GetProcess().GetSelectedThread().StepInto(nullptr,
-            LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
-        return false;
-      }
+      if (request_continue_with_cpi())
+        return true;
+      g_vsc.target.GetProcess().GetSelectedThread().StepInto(
+          nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
+      return false;
     }
+  }
 }
-
-// const char* request_continue() {
-//     string sol_log_msg;
-//     g_error = g_vsc.target.GetProcess().Continue();
-//     if (is_sol_log(sol_log_msg)) {
-//         if
-//         (g_vsc.target.GetProcess().GetSelectedThread().GetStopReasonDataCount()
-//         == 2)
-//             sol_log_msg += request_continue();
-//     }
-//     return strdup(sol_log_msg.c_str());
-// }
 
 const char *request_cpi_program_id() {
   SBError error;
@@ -572,73 +391,15 @@ const char *request_cpi_program_id() {
   SBData pubkey_data = program_id.GetData();
 
   memset(CPI_PROGRAM_ID, 0, PUBKEY_LEN);
-  for (int i = 0; i < PUBKEY_LEN; i++) {
+  for (int i = 0; i < PUBKEY_LEN; i++)
     CPI_PROGRAM_ID[i] = pubkey_data.GetUnsignedInt8(error, i);
-    printf("%x", pubkey_data.GetUnsignedInt8(error, i));
-  }
   return CPI_PROGRAM_ID;
 }
 
-// const char* request_source(char* const json) {
-//   llvm::json::Object request;addr_t addr = instruction.GetAddress().GetLoadAddress(g_vsc.target);
-//   read_JSON(json, request);
-
-//   FillResponse(request, response);
-//   llvm::json::Object body;
-
-//   auto arguments = request.getObject("arguments");
-//   auto source = arguments->getObject("source");
-//   auto sourceReference = GetSigned(source, "sourceReference", -1);
-//   auto pos = g_vsc.source_map.find((lldb::addr_t)sourceReference);
-//   if (pos != g_vsc.source_map.end()) {
-//     EmplaceSafeString(body, "content", pos->second.content);
-//   } else {
-//     response["success"] = llvm::json::Value(false);
-//   }
-//   EmplaceSafeString(body, "mimeType", "text/x-lldb.disassembly");
-//   response.try_emplace("body", std::move(body));
-
-//   return build_JSON_str(llvm::json::Value(std::move(response)));
-// }
-
-// const char* request_scopes(char* const json) {
-//   llvm::json::Object request;
-//   llvm::json::Object response;
-
-//   read_JSON(json, request);
-
-//   FillResponse(request, response);
-//   llvm::json::Object body;
-
-//   auto arguments = request.getObject("arguments");
-//   lldb::SBFrame frame = g_vsc.GetLLDBFrame(*arguments);
-
-//   if (frame.IsValid()) {
-//     frame.GetThread().GetProcess().SetSelectedThread(frame.GetThread());
-//     frame.GetThread().SetSelectedFrame(frame.GetFrameID());
-//   }
-//   g_vsc.variables.locals = frame.GetVariables(/*arguments=*/true,
-//                                               /*locals=*/true,
-//                                               /*statics=*/false,
-//                                               /*in_scope_only=*/true);
-//   g_vsc.variables.globals = frame.GetVariables(/*arguments=*/false,
-//                                                /*locals=*/false,
-//                                                /*statics=*/true,
-//                                                /*in_scope_only=*/true);
-//   g_vsc.variables.registers = frame.GetRegisters();
-//   body.try_emplace("scopes", g_vsc.CreateTopLevelScopes());
-//   response.try_emplace("body", std::move(body));
-
-//   return build_JSON_str(llvm::json::Value(std::move(response)));
-// }
-
 lldb::SBValueList *GetTopLevelScope(int64_t variablesReference) {
-  cout << "GetTopLevelScope: " << variablesReference << endl;
   switch (variablesReference) {
-  case VARREF_LOCALS: {
-    cout << "GetTopLevelScope: VARREF_LOCALS" << endl;
+  case VARREF_LOCALS:
     return &g_vsc.variables.locals;
-  }
   case VARREF_GLOBALS:
     return &g_vsc.variables.globals;
   case VARREF_REGS:
@@ -649,7 +410,6 @@ lldb::SBValueList *GetTopLevelScope(int64_t variablesReference) {
 }
 
 const char *request_stackTrace(char *const json) {
-  cout << "request_stackTrace" << endl;
   llvm::json::Object request;
   llvm::json::Object response;
 
@@ -659,7 +419,6 @@ const char *request_stackTrace(char *const json) {
   lldb::SBError error;
   auto arguments = request.getObject("arguments");
   lldb::SBThread thread = g_vsc.target.GetProcess().GetSelectedThread();
-  // lldb::SBThread thread = g_vsc.GetLLDBThread(*arguments);
   llvm::json::Array stackFrames;
   llvm::json::Object body;
   if (thread.IsValid()) {
@@ -668,16 +427,12 @@ const char *request_stackTrace(char *const json) {
     const auto endFrame = (levels == 0) ? INT64_MAX : (startFrame + levels);
     for (uint32_t i = startFrame; i < endFrame; ++i) {
       auto frame = thread.GetFrameAtIndex(i);
-      if (!frame.IsValid()) {
-        cout << "id: " << i << " is NOT valid" << endl;
+      if (!frame.IsValid())
         break;
-      }
       stackFrames.emplace_back(CreateStackFrame(frame));
     }
     const auto totalFrames = thread.GetNumFrames();
     body.try_emplace("totalFrames", totalFrames);
-  } else {
-    cout << "thread is NOT valid" << endl;
   }
   body.try_emplace("stackFrames", std::move(stackFrames));
   response.try_emplace("body", std::move(body));
@@ -686,7 +441,6 @@ const char *request_stackTrace(char *const json) {
 }
 
 const char *request_setBreakpoints(char *const json) {
-  cout << "request_setBreakpoints" << endl;
   llvm::json::Object request;
   llvm::json::Object response;
 
@@ -705,7 +459,6 @@ const char *request_setBreakpoints(char *const json) {
   // "breakpoints" may be unset, in which case we treat it the same as being set
   // to an empty array.
   if (breakpoints) {
-    cout << "IS breakpoints" << endl;
     for (const auto &bp : *breakpoints) {
       auto bp_obj = bp.getAsObject();
       if (bp_obj) {
@@ -769,8 +522,6 @@ const char *request_pubkey(char *const name) {
 }
 
 const char *request_variables(char *const json) {
-  cout << "request_variables" << endl;
-
   llvm::json::Object request;
   llvm::json::Object response;
 
@@ -797,14 +548,12 @@ const char *request_variables(char *const json) {
   ;
 
   if (lldb::SBValueList *top_scope = GetTopLevelScope(variablesReference)) {
-    cout << "IS top_scope" << endl;
     // variablesReference is one of our scopes, not an actual variable it is
     // asking for the list of args, locals or globals.
     int64_t start_idx = 0;
     int64_t num_children = 0;
 
     num_children = top_scope->GetSize();
-    cout << "num_children: " << num_children << endl;
     const int64_t end_idx = start_idx + ((count == 0) ? num_children : count);
 
     // We first find out which variable names are duplicated
@@ -833,7 +582,6 @@ const char *request_variables(char *const json) {
           variable_name_counts[GetNonNullVariableName(variable)] > 1));
     }
   } else {
-    cout << "IS NOT top_scope" << endl;
     // We are expanding a variable that has children, so we will return its
     // children.
     lldb::SBValue variable = g_vsc.variables.GetVariable(variablesReference);
@@ -855,8 +603,6 @@ const char *request_variables(char *const json) {
           variables.emplace_back(CreateVariable(child, 0, INT64_MAX, hex));
         }
       }
-    } else {
-      cout << "IS NOT valid variable" << endl;
     }
   }
   llvm::json::Object body;
