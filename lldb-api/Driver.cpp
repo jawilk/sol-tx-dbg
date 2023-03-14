@@ -38,38 +38,42 @@ using namespace lldb;
 using namespace lldb_vscode;
 using namespace std;
 
-// API calls, these will return values (if any) to the typescript
-// vscode-solana-debug extension EMSCRIPTEN_KEEPALIVE will add to
-// EXPORTED_FUNCTIONS automatically
-extern "C" {
-EMSCRIPTEN_KEEPALIVE const char *execute_command(const char *input);
-EMSCRIPTEN_KEEPALIVE void create_target(const char *path);
-EMSCRIPTEN_KEEPALIVE const char *request_variables(char *const json);
-EMSCRIPTEN_KEEPALIVE const char *request_pubkey(char *const name);
-EMSCRIPTEN_KEEPALIVE const char *request_scopes(char *const json);
-EMSCRIPTEN_KEEPALIVE const char *request_setBreakpoints(char *const json);
-EMSCRIPTEN_KEEPALIVE const char *request_stackTrace(char *const json);
-EMSCRIPTEN_KEEPALIVE const char *request_source(char *const json);
-EMSCRIPTEN_KEEPALIVE const char *request_next();
-EMSCRIPTEN_KEEPALIVE const char *request_stepIn();
-EMSCRIPTEN_KEEPALIVE bool request_stepOut();
-EMSCRIPTEN_KEEPALIVE const char *request_continue();
-EMSCRIPTEN_KEEPALIVE void request_terminate();
-EMSCRIPTEN_KEEPALIVE int should_terminate();
-EMSCRIPTEN_KEEPALIVE bool request_stepIn_with_cpi();
-EMSCRIPTEN_KEEPALIVE int request_next_with_cpi();
-EMSCRIPTEN_KEEPALIVE bool request_continue_with_cpi();
-EMSCRIPTEN_KEEPALIVE const char *request_cpi_program_id();
-EMSCRIPTEN_KEEPALIVE void set_cpi_line(uint32_t line);
+// API calls, these will return values (if any) to the JS
+// frontend
+// EMSCRIPTEN_KEEPALIVE will add to EXPORTED_FUNCTIONS automatically
+extern "C"
+{
+  EMSCRIPTEN_KEEPALIVE const char *execute_command(const char *input);
+  EMSCRIPTEN_KEEPALIVE void create_target(const char *path);
+  EMSCRIPTEN_KEEPALIVE const char *request_variables(char *const json);
+  EMSCRIPTEN_KEEPALIVE const char *request_pubkey(char *const name);
+  EMSCRIPTEN_KEEPALIVE const char *request_scopes(char *const json);
+  EMSCRIPTEN_KEEPALIVE const char *request_setBreakpoints(char *const json);
+  EMSCRIPTEN_KEEPALIVE const char *request_stackTrace(char *const json);
+  EMSCRIPTEN_KEEPALIVE const char *request_source(char *const json);
+  EMSCRIPTEN_KEEPALIVE const char *request_next();
+  EMSCRIPTEN_KEEPALIVE const char *request_stepIn();
+  EMSCRIPTEN_KEEPALIVE bool request_stepOut();
+  EMSCRIPTEN_KEEPALIVE const char *request_continue();
+  EMSCRIPTEN_KEEPALIVE void request_terminate();
+  EMSCRIPTEN_KEEPALIVE int should_terminate();
+  EMSCRIPTEN_KEEPALIVE bool request_stepIn_with_cpi();
+  EMSCRIPTEN_KEEPALIVE int request_next_with_cpi();
+  EMSCRIPTEN_KEEPALIVE bool request_continue_with_cpi();
+  EMSCRIPTEN_KEEPALIVE const char *request_cpi_program_id();
+  EMSCRIPTEN_KEEPALIVE void set_cpi_line(uint32_t line);
 }
 
-class LLDBSentry {
+class LLDBSentry
+{
 public:
-  LLDBSentry() {
+  LLDBSentry()
+  {
     // Initialize LLDB
     SBDebugger::Initialize();
   }
-  ~LLDBSentry() {
+  ~LLDBSentry()
+  {
     // Terminate LLDB
     SBDebugger::Terminate();
   }
@@ -83,7 +87,8 @@ uint32_t CPI_LINE;
 bool IS_CPI = false;
 SBError g_error;
 
-int main() {
+int main()
+{
   // Create debugger instance
   g_vsc.debugger = SBDebugger::Create();
   g_vsc.debugger.SetAsync(false);
@@ -92,7 +97,8 @@ int main() {
 }
 
 // API helper (JSON)
-void read_JSON(std::string json, llvm::json::Object &object) {
+void read_JSON(std::string json, llvm::json::Object &object)
+{
   llvm::StringRef json_sref(json);
 
   llvm::Expected<llvm::json::Value> json_value = llvm::json::parse(json_sref);
@@ -103,7 +109,8 @@ void read_JSON(std::string json, llvm::json::Object &object) {
 }
 
 // Serialize the JSON value into a string.
-const char *build_JSON_str(const llvm::json::Value &json) {
+const char *build_JSON_str(const llvm::json::Value &json)
+{
   std::string s;
   llvm::raw_string_ostream strm(s);
   strm << json;
@@ -113,7 +120,8 @@ const char *build_JSON_str(const llvm::json::Value &json) {
 }
 
 // API
-const char *execute_command(const char *command) {
+const char *execute_command(const char *command)
+{
   SBCommandReturnObject result;
   SBCommandInterpreter sb_interpreter = g_vsc.debugger.GetCommandInterpreter();
   sb_interpreter.HandleCommand(command, result, false);
@@ -121,7 +129,8 @@ const char *execute_command(const char *command) {
   return strdup(result.GetOutput());
 }
 
-void create_target(const char *path) {
+void create_target(const char *path)
+{
   SBError error;
   const char *arch = NULL;
   const char *platform = NULL;
@@ -130,14 +139,17 @@ void create_target(const char *path) {
                                              add_dependent_libs, error);
 }
 
-void request_terminate() {
+void request_terminate()
+{
   g_vsc.debugger.SetAsync(false);
   g_vsc.target.GetProcess().Kill();
   g_vsc.debugger.SetAsync(true);
 }
 
-int should_terminate() {
-  if (!g_error.Success()) {
+int should_terminate()
+{
+  if (!g_error.Success())
+  {
     execute_command("kill");
     return -1;
   }
@@ -146,7 +158,8 @@ int should_terminate() {
 
 void set_cpi_line(uint32_t line) { CPI_LINE = line; }
 
-bool is_invoke_signed_unchecked() {
+bool is_invoke_signed_unchecked()
+{
   SBError error;
   string func_name;
   uint32_t line;
@@ -154,23 +167,27 @@ bool is_invoke_signed_unchecked() {
   if (g_vsc.target.GetProcess()
           .GetSelectedThread()
           .GetSelectedFrame()
-          .IsValid()) {
+          .IsValid())
+  {
     if (g_vsc.target.GetProcess()
             .GetSelectedThread()
             .GetSelectedFrame()
             .GetFunction()
-            .IsValid()) {
+            .IsValid())
+    {
       func_name = g_vsc.target.GetProcess()
                       .GetSelectedThread()
                       .GetSelectedFrame()
                       .GetFunctionName();
-      if (func_name.find("invoke_signed_unchecked") != string::npos) {
+      if (func_name.find("invoke_signed_unchecked") != string::npos)
+      {
         line = g_vsc.target.GetProcess()
                    .GetSelectedThread()
                    .GetSelectedFrame()
                    .GetLineEntry()
                    .GetLine();
-        if (line == CPI_LINE) {
+        if (line == CPI_LINE)
+        {
           IS_CPI = true;
           return true;
         }
@@ -180,7 +197,8 @@ bool is_invoke_signed_unchecked() {
   return false;
 }
 
-void till_next_line(uint32_t line_before, int type) {
+void till_next_line(uint32_t line_before, int type)
+{
   uint32_t func_start, now;
 
   SBFrame frame =
@@ -192,7 +210,8 @@ void till_next_line(uint32_t line_before, int type) {
   func_start = frame.GetFunction().GetStartAddress().GetLineEntry().GetLine();
   now = frame.GetLineEntry().GetLine();
 
-  while ((now == func_start || now == line_before) && should_terminate() == 0) {
+  while ((now == func_start || now == line_before) && should_terminate() == 0)
+  {
     // Step-in
     if (type == 0)
       g_vsc.target.GetProcess().GetSelectedThread().StepInto(
@@ -208,7 +227,8 @@ void till_next_line(uint32_t line_before, int type) {
   }
 }
 
-bool request_stepIn_with_cpi() {
+bool request_stepIn_with_cpi()
+{
   uint32_t line_before;
   line_before = g_vsc.target.GetProcess()
                     .GetSelectedThread()
@@ -224,7 +244,8 @@ bool request_stepIn_with_cpi() {
   return is_invoke_signed_unchecked();
 }
 
-int request_next_with_cpi() {
+int request_next_with_cpi()
+{
   uint32_t line_before;
   string func_name_before;
   SBFrame frame;
@@ -243,7 +264,8 @@ int request_next_with_cpi() {
   const char *next_line_inst = execute_command("dis -p -c 1");
   string insts = string(next_line_inst);
   free((void *)next_line_inst);
-  if (insts.find("goto") != string::npos) {
+  if (insts.find("goto") != string::npos)
+  {
     g_vsc.target.GetProcess().GetSelectedThread().StepInto(
         nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
     uint32_t func_start, now;
@@ -257,7 +279,9 @@ int request_next_with_cpi() {
       return 1;
     return 0;
     // Call
-  } else if (insts.find("call") != string::npos) {
+  }
+  else if (insts.find("call") != string::npos)
+  {
     g_vsc.target.GetProcess().GetSelectedThread().StepInto(
         nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
     SBFrame f =
@@ -267,20 +291,26 @@ int request_next_with_cpi() {
                               .GetSelectedFrame()
                               .GetFunction();
     SBInstructionList instructions = function.GetInstructions(g_vsc.target);
-    for (uint32_t i = 0; i < instructions.GetSize(); i++) {
+    for (uint32_t i = 0; i < instructions.GetSize(); i++)
+    {
       SBInstruction instruction = instructions.GetInstructionAtIndex(i);
       string mnem = instruction.GetMnemonic(g_vsc.target);
-      if (mnem == "exit") {
+      if (mnem == "exit")
+      {
         addr_t addr = instruction.GetAddress().GetLoadAddress(g_vsc.target);
         string c = "b -o true -a " + to_string(addr);
         const char *ret = execute_command(c.c_str());
         free((void *)ret);
-        if (request_continue_with_cpi()) {
+        if (request_continue_with_cpi())
+        {
           if (func_name_before.find("invoke_signed_unchecked") !=
                   std::string::npos ||
-              func_name_before.find("invoke_signed") != std::string::npos) {
+              func_name_before.find("invoke_signed") != std::string::npos)
+          {
             return 1;
-          } else {
+          }
+          else
+          {
             return 2;
           }
         }
@@ -288,12 +318,16 @@ int request_next_with_cpi() {
         g_vsc.target.GetProcess().GetSelectedThread().StepInto(
             nullptr, LLDB_INVALID_LINE_NUMBER, g_error, eOnlyThisThread);
         till_next_line(line_before, 1);
-        if (is_invoke_signed_unchecked()) {
+        if (is_invoke_signed_unchecked())
+        {
           if (func_name_before.find("invoke_signed_unchecked") !=
                   std::string::npos ||
-              func_name_before.find("invoke_signed") != std::string::npos) {
+              func_name_before.find("invoke_signed") != std::string::npos)
+          {
             return 1;
-          } else {
+          }
+          else
+          {
             return 2;
           }
         }
@@ -301,14 +335,17 @@ int request_next_with_cpi() {
       }
     }
     // Normal
-  } else {
+  }
+  else
+  {
     g_vsc.target.GetProcess().GetSelectedThread().StepOver(eOnlyThisThread,
                                                            g_error);
     auto line_entry = g_vsc.target.GetProcess()
                           .GetSelectedThread()
                           .GetSelectedFrame()
                           .GetLineEntry();
-    if (!line_entry.GetFileSpec().IsValid()) {
+    if (!line_entry.GetFileSpec().IsValid())
+    {
       SBFrame f =
           g_vsc.target.GetProcess().GetSelectedThread().GetSelectedFrame();
       string dis = g_vsc.target.GetProcess()
@@ -318,11 +355,13 @@ int request_next_with_cpi() {
       std::regex regex("0x[\\da-fA-F]+");
       std::sregex_iterator matches(dis.begin(), dis.end(), regex);
       std::sregex_iterator last_match;
-      for (; matches != std::sregex_iterator(); ++matches) {
+      for (; matches != std::sregex_iterator(); ++matches)
+      {
         last_match = matches;
       }
       std::string last_address = last_match->str();
-      if (last_address.find("0x") != std::string::npos) {
+      if (last_address.find("0x") != std::string::npos)
+      {
         string command = "b -o true -a " + last_address;
         const char *ret = execute_command(command.c_str());
         free((void *)ret);
@@ -333,15 +372,20 @@ int request_next_with_cpi() {
       }
 
       return 0;
-
-    } else {
+    }
+    else
+    {
       till_next_line(line_before, 1);
-      if (is_invoke_signed_unchecked()) {
+      if (is_invoke_signed_unchecked())
+      {
         if (func_name_before.find("invoke_signed_unchecked") !=
                 std::string::npos ||
-            func_name_before.find("invoke_signed") != std::string::npos) {
+            func_name_before.find("invoke_signed") != std::string::npos)
+        {
           return 1;
-        } else {
+        }
+        else
+        {
           return 2;
         }
       }
@@ -351,21 +395,25 @@ int request_next_with_cpi() {
   return 0;
 }
 
-bool request_continue_with_cpi() {
+bool request_continue_with_cpi()
+{
   g_error = g_vsc.target.GetProcess().Continue();
   return is_invoke_signed_unchecked();
 }
 
-bool request_stepOut() {
+bool request_stepOut()
+{
   SBFunction function = g_vsc.target.GetProcess()
                             .GetSelectedThread()
                             .GetSelectedFrame()
                             .GetFunction();
   SBInstructionList instructions = function.GetInstructions(g_vsc.target);
-  for (uint32_t i = 0; i < instructions.GetSize(); i++) {
+  for (uint32_t i = 0; i < instructions.GetSize(); i++)
+  {
     SBInstruction instruction = instructions.GetInstructionAtIndex(i);
     string mnem = instruction.GetMnemonic(g_vsc.target);
-    if (mnem == "exit") {
+    if (mnem == "exit")
+    {
       addr_t addr = instruction.GetAddress().GetLoadAddress(g_vsc.target);
       string c = "b -o true -a " + to_string(addr);
       const char *ret = execute_command(c.c_str());
@@ -380,7 +428,8 @@ bool request_stepOut() {
   }
 }
 
-const char *request_cpi_program_id() {
+const char *request_cpi_program_id()
+{
   SBError error;
 
   SBValue instruction = g_vsc.target.GetProcess()
@@ -396,8 +445,10 @@ const char *request_cpi_program_id() {
   return CPI_PROGRAM_ID;
 }
 
-lldb::SBValueList *GetTopLevelScope(int64_t variablesReference) {
-  switch (variablesReference) {
+lldb::SBValueList *GetTopLevelScope(int64_t variablesReference)
+{
+  switch (variablesReference)
+  {
   case VARREF_LOCALS:
     return &g_vsc.variables.locals;
   case VARREF_GLOBALS:
@@ -409,7 +460,8 @@ lldb::SBValueList *GetTopLevelScope(int64_t variablesReference) {
   }
 }
 
-const char *request_stackTrace(char *const json) {
+const char *request_stackTrace(char *const json)
+{
   llvm::json::Object request;
   llvm::json::Object response;
 
@@ -421,11 +473,13 @@ const char *request_stackTrace(char *const json) {
   lldb::SBThread thread = g_vsc.target.GetProcess().GetSelectedThread();
   llvm::json::Array stackFrames;
   llvm::json::Object body;
-  if (thread.IsValid()) {
+  if (thread.IsValid())
+  {
     const auto startFrame = GetUnsigned(arguments, "startFrame", 0);
     const auto levels = GetUnsigned(arguments, "levels", 0);
     const auto endFrame = (levels == 0) ? INT64_MAX : (startFrame + levels);
-    for (uint32_t i = startFrame; i < endFrame; ++i) {
+    for (uint32_t i = startFrame; i < endFrame; ++i)
+    {
       auto frame = thread.GetFrameAtIndex(i);
       if (!frame.IsValid())
         break;
@@ -440,7 +494,8 @@ const char *request_stackTrace(char *const json) {
   return build_JSON_str(llvm::json::Value(std::move(response)));
 }
 
-const char *request_setBreakpoints(char *const json) {
+const char *request_setBreakpoints(char *const json)
+{
   llvm::json::Object request;
   llvm::json::Object response;
 
@@ -458,19 +513,24 @@ const char *request_setBreakpoints(char *const json) {
   SourceBreakpointMap request_bps;
   // "breakpoints" may be unset, in which case we treat it the same as being set
   // to an empty array.
-  if (breakpoints) {
-    for (const auto &bp : *breakpoints) {
+  if (breakpoints)
+  {
+    for (const auto &bp : *breakpoints)
+    {
       auto bp_obj = bp.getAsObject();
-      if (bp_obj) {
+      if (bp_obj)
+      {
         SourceBreakpoint src_bp(*bp_obj);
         request_bps[src_bp.line] = src_bp;
 
         // We check if this breakpoint already exists to update it
         auto existing_source_bps = g_vsc.source_breakpoints.find(path);
-        if (existing_source_bps != g_vsc.source_breakpoints.end()) {
+        if (existing_source_bps != g_vsc.source_breakpoints.end())
+        {
           const auto &existing_bp =
               existing_source_bps->second.find(src_bp.line);
-          if (existing_bp != existing_source_bps->second.end()) {
+          if (existing_bp != existing_source_bps->second.end())
+          {
             existing_bp->second.UpdateBreakpoint(src_bp);
             AppendBreakpoint(existing_bp->second.bp, response_breakpoints, path,
                              src_bp.line);
@@ -489,10 +549,13 @@ const char *request_setBreakpoints(char *const json) {
   // request_bps set. There is no call to remove breakpoints other than
   // calling this function with a smaller or empty "breakpoints" list.
   auto old_src_bp_pos = g_vsc.source_breakpoints.find(path);
-  if (old_src_bp_pos != g_vsc.source_breakpoints.end()) {
-    for (auto &old_bp : old_src_bp_pos->second) {
+  if (old_src_bp_pos != g_vsc.source_breakpoints.end())
+  {
+    for (auto &old_bp : old_src_bp_pos->second)
+    {
       auto request_pos = request_bps.find(old_bp.first);
-      if (request_pos == request_bps.end()) {
+      if (request_pos == request_bps.end())
+      {
         // This breakpoint no longer exists in this source file, delete it
         g_vsc.target.BreakpointDelete(old_bp.second.bp.GetID());
         old_src_bp_pos->second.erase(old_bp.first);
@@ -507,7 +570,8 @@ const char *request_setBreakpoints(char *const json) {
   return build_JSON_str(llvm::json::Value(std::move(response)));
 }
 
-const char *request_pubkey(char *const name) {
+const char *request_pubkey(char *const name)
+{
   SBError error;
   memset(PUBKEY, 0, PUBKEY_LEN);
   SBData p = g_vsc.target.GetProcess()
@@ -521,7 +585,8 @@ const char *request_pubkey(char *const name) {
   return PUBKEY;
 }
 
-const char *request_variables(char *const json) {
+const char *request_variables(char *const json)
+{
   llvm::json::Object request;
   llvm::json::Object response;
 
@@ -547,7 +612,8 @@ const char *request_variables(char *const json) {
                                              /*in_scope_only=*/true);
   ;
 
-  if (lldb::SBValueList *top_scope = GetTopLevelScope(variablesReference)) {
+  if (lldb::SBValueList *top_scope = GetTopLevelScope(variablesReference))
+  {
     // variablesReference is one of our scopes, not an actual variable it is
     // asking for the list of args, locals or globals.
     int64_t start_idx = 0;
@@ -558,7 +624,8 @@ const char *request_variables(char *const json) {
 
     // We first find out which variable names are duplicated
     std::map<std::string, int> variable_name_counts;
-    for (auto i = start_idx; i < end_idx; ++i) {
+    for (auto i = start_idx; i < end_idx; ++i)
+    {
       lldb::SBValue variable = top_scope->GetValueAtIndex(i);
       if (!variable.IsValid())
         break;
@@ -566,14 +633,16 @@ const char *request_variables(char *const json) {
     }
 
     // Now we construct the result with unique display variable names
-    for (auto i = start_idx; i < end_idx; ++i) {
+    for (auto i = start_idx; i < end_idx; ++i)
+    {
       lldb::SBValue variable = top_scope->GetValueAtIndex(i);
 
       if (!variable.IsValid())
         break;
 
       int64_t var_ref = 0;
-      if (variable.MightHaveChildren()) {
+      if (variable.MightHaveChildren())
+      {
         var_ref = g_vsc.variables.InsertExpandableVariable(
             variable, /*is_permanent=*/false);
       }
@@ -581,25 +650,32 @@ const char *request_variables(char *const json) {
           variable, var_ref, var_ref != 0 ? var_ref : UINT64_MAX, hex,
           variable_name_counts[GetNonNullVariableName(variable)] > 1));
     }
-  } else {
+  }
+  else
+  {
     // We are expanding a variable that has children, so we will return its
     // children.
     lldb::SBValue variable = g_vsc.variables.GetVariable(variablesReference);
-    if (variable.IsValid()) {
+    if (variable.IsValid())
+    {
       const auto num_children = variable.GetNumChildren();
       const int64_t end_idx = start + ((count == 0) ? num_children : count);
-      for (auto i = start; i < end_idx; ++i) {
+      for (auto i = start; i < end_idx; ++i)
+      {
         lldb::SBValue child = variable.GetChildAtIndex(i);
         if (!child.IsValid())
           break;
-        if (child.MightHaveChildren()) {
+        if (child.MightHaveChildren())
+        {
           auto is_permanent =
               g_vsc.variables.IsPermanentVariableReference(variablesReference);
           auto childVariablesReferences =
               g_vsc.variables.InsertExpandableVariable(child, is_permanent);
           variables.emplace_back(CreateVariable(child, childVariablesReferences,
                                                 childVariablesReferences, hex));
-        } else {
+        }
+        else
+        {
           variables.emplace_back(CreateVariable(child, 0, INT64_MAX, hex));
         }
       }
@@ -665,36 +741,39 @@ const char *request_variables(char *const json) {
 using namespace lldb;
 using namespace llvm;
 
-namespace {
-enum ID {
-  OPT_INVALID = 0, // This is not an option ID.
-#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
-               HELPTEXT, METAVAR, VALUES)                                      \
+namespace
+{
+  enum ID
+  {
+    OPT_INVALID = 0, // This is not an option ID.
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM, \
+               HELPTEXT, METAVAR, VALUES)                                     \
   OPT_##ID,
 #include "Options.inc"
 #undef OPTION
-};
+  };
 
 #define PREFIX(NAME, VALUE) const char *const NAME[] = VALUE;
 #include "Options.inc"
 #undef PREFIX
 
-const opt::OptTable::Info InfoTable[] = {
-#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
-               HELPTEXT, METAVAR, VALUES)                                      \
-  {                                                                            \
-      PREFIX,      NAME,      HELPTEXT,                                        \
-      METAVAR,     OPT_##ID,  opt::Option::KIND##Class,                        \
-      PARAM,       FLAGS,     OPT_##GROUP,                                     \
+  const opt::OptTable::Info InfoTable[] = {
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM, \
+               HELPTEXT, METAVAR, VALUES)                                     \
+  {                                                                           \
+      PREFIX, NAME, HELPTEXT,                                                 \
+      METAVAR, OPT_##ID, opt::Option::KIND##Class,                            \
+      PARAM, FLAGS, OPT_##GROUP,                                              \
       OPT_##ALIAS, ALIASARGS, VALUES},
 #include "Options.inc"
 #undef OPTION
-};
+  };
 
-class LLDBOptTable : public opt::OptTable {
-public:
-  LLDBOptTable() : OptTable(InfoTable) {}
-};
+  class LLDBOptTable : public opt::OptTable
+  {
+  public:
+    LLDBOptTable() : OptTable(InfoTable) {}
+  };
 } // namespace
 
 static void reset_stdin_termios();
@@ -705,31 +784,37 @@ static Driver *g_driver = nullptr;
 
 // In the Driver::MainLoop, we change the terminal settings.  This function is
 // added as an atexit handler to make sure we clean them up.
-static void reset_stdin_termios() {
-  if (g_old_stdin_termios_is_valid) {
+static void reset_stdin_termios()
+{
+  if (g_old_stdin_termios_is_valid)
+  {
     g_old_stdin_termios_is_valid = false;
     ::tcsetattr(STDIN_FILENO, TCSANOW, &g_old_stdin_termios);
   }
 }
 
 Driver::Driver()
-    : SBBroadcaster("Driver"), m_debugger(SBDebugger::Create(false)) {
+    : SBBroadcaster("Driver"), m_debugger(SBDebugger::Create(false))
+{
   // We want to be able to handle CTRL+D in the terminal to have it terminate
   // certain input
   m_debugger.SetCloseInputOnEOF(false);
   g_driver = this;
 }
 
-Driver::~Driver() {
+Driver::~Driver()
+{
   SBDebugger::Destroy(m_debugger);
   g_driver = nullptr;
 }
 
 void Driver::OptionData::AddInitialCommand(std::string command,
                                            CommandPlacement placement,
-                                           bool is_file, SBError &error) {
+                                           bool is_file, SBError &error)
+{
   std::vector<InitialCmdEntry> *command_set;
-  switch (placement) {
+  switch (placement)
+  {
   case eCommandPlacementBeforeFile:
     command_set = &(m_initial_commands);
     break;
@@ -741,26 +826,32 @@ void Driver::OptionData::AddInitialCommand(std::string command,
     break;
   }
 
-  if (is_file) {
+  if (is_file)
+  {
     SBFileSpec file(command.c_str());
     if (file.Exists())
       command_set->push_back(InitialCmdEntry(command, is_file));
-    else if (file.ResolveExecutableLocation()) {
+    else if (file.ResolveExecutableLocation())
+    {
       char final_path[PATH_MAX];
       file.GetPath(final_path, sizeof(final_path));
       command_set->push_back(InitialCmdEntry(final_path, is_file));
-    } else
+    }
+    else
       error.SetErrorStringWithFormat(
           "file specified in --source (-s) option doesn't exist: '%s'",
           command.c_str());
-  } else
+  }
+  else
     command_set->push_back(InitialCmdEntry(command, is_file));
 }
 
 void Driver::WriteCommandsForSourcing(CommandPlacement placement,
-                                      SBStream &strm) {
+                                      SBStream &strm)
+{
   std::vector<OptionData::InitialCmdEntry> *command_set;
-  switch (placement) {
+  switch (placement)
+  {
   case eCommandPlacementBeforeFile:
     command_set = &m_option_data.m_initial_commands;
     break;
@@ -772,14 +863,17 @@ void Driver::WriteCommandsForSourcing(CommandPlacement placement,
     break;
   }
 
-  for (const auto &command_entry : *command_set) {
+  for (const auto &command_entry : *command_set)
+  {
     const char *command = command_entry.contents.c_str();
-    if (command_entry.is_file) {
+    if (command_entry.is_file)
+    {
       bool source_quietly =
           m_option_data.m_source_quietly || command_entry.source_quietly;
       strm.Printf("command source -s %i '%s'\n",
                   static_cast<int>(source_quietly), command);
-    } else
+    }
+    else
       strm.Printf("%s\n", command);
   }
 }
@@ -789,7 +883,8 @@ void Driver::WriteCommandsForSourcing(CommandPlacement placement,
 // indicating whether or not to start up the full debugger (i.e. the Command
 // Interpreter) or not.  Return FALSE if the arguments were invalid OR if the
 // user only wanted help or version information.
-SBError Driver::ProcessArgs(const opt::InputArgList &args, bool &exiting) {
+SBError Driver::ProcessArgs(const opt::InputArgList &args, bool &exiting)
+{
   SBError error;
 
   // This is kind of a pain, but since we make the debugger in the Driver's
@@ -801,22 +896,27 @@ SBError Driver::ProcessArgs(const opt::InputArgList &args, bool &exiting) {
   m_debugger.SkipLLDBInitFiles(false);
   m_debugger.SkipAppInitFiles(false);
 
-  if (args.hasArg(OPT_version)) {
+  if (args.hasArg(OPT_version))
+  {
     m_option_data.m_print_version = true;
   }
 
-  if (args.hasArg(OPT_python_path)) {
+  if (args.hasArg(OPT_python_path))
+  {
     m_option_data.m_print_python_path = true;
   }
 
-  if (args.hasArg(OPT_batch)) {
+  if (args.hasArg(OPT_batch))
+  {
     m_option_data.m_batch = true;
   }
 
-  if (auto *arg = args.getLastArg(OPT_core)) {
+  if (auto *arg = args.getLastArg(OPT_core))
+  {
     auto arg_value = arg->getValue();
     SBFileSpec file(arg_value);
-    if (!file.Exists()) {
+    if (!file.Exists())
+    {
       error.SetErrorStringWithFormat(
           "file specified in --core (-c) option doesn't exist: '%s'",
           arg_value);
@@ -825,35 +925,45 @@ SBError Driver::ProcessArgs(const opt::InputArgList &args, bool &exiting) {
     m_option_data.m_core_file = arg_value;
   }
 
-  if (args.hasArg(OPT_editor)) {
+  if (args.hasArg(OPT_editor))
+  {
     m_option_data.m_use_external_editor = true;
   }
 
-  if (args.hasArg(OPT_no_lldbinit)) {
+  if (args.hasArg(OPT_no_lldbinit))
+  {
     m_debugger.SkipLLDBInitFiles(true);
     m_debugger.SkipAppInitFiles(true);
   }
 
-  if (args.hasArg(OPT_local_lldbinit)) {
+  if (args.hasArg(OPT_local_lldbinit))
+  {
     lldb::SBDebugger::SetInternalVariable("target.load-cwd-lldbinit", "true",
                                           m_debugger.GetInstanceName());
   }
 
-  if (args.hasArg(OPT_no_use_colors)) {
+  if (args.hasArg(OPT_no_use_colors))
+  {
     m_debugger.SetUseColor(false);
     m_option_data.m_debug_mode = true;
   }
 
-  if (auto *arg = args.getLastArg(OPT_file)) {
+  if (auto *arg = args.getLastArg(OPT_file))
+  {
     auto arg_value = arg->getValue();
     SBFileSpec file(arg_value);
-    if (file.Exists()) {
+    if (file.Exists())
+    {
       m_option_data.m_args.emplace_back(arg_value);
-    } else if (file.ResolveExecutableLocation()) {
+    }
+    else if (file.ResolveExecutableLocation())
+    {
       char path[PATH_MAX];
       file.GetPath(path, sizeof(path));
       m_option_data.m_args.emplace_back(path);
-    } else {
+    }
+    else
+    {
       error.SetErrorStringWithFormat(
           "file specified in --file (-f) option doesn't exist: '%s'",
           arg_value);
@@ -861,60 +971,72 @@ SBError Driver::ProcessArgs(const opt::InputArgList &args, bool &exiting) {
     }
   }
 
-  if (auto *arg = args.getLastArg(OPT_arch)) {
+  if (auto *arg = args.getLastArg(OPT_arch))
+  {
     auto arg_value = arg->getValue();
-    if (!lldb::SBDebugger::SetDefaultArchitecture(arg_value)) {
+    if (!lldb::SBDebugger::SetDefaultArchitecture(arg_value))
+    {
       error.SetErrorStringWithFormat(
           "invalid architecture in the -a or --arch option: '%s'", arg_value);
       return error;
     }
   }
 
-  if (auto *arg = args.getLastArg(OPT_script_language)) {
+  if (auto *arg = args.getLastArg(OPT_script_language))
+  {
     auto arg_value = arg->getValue();
     m_debugger.SetScriptLanguage(m_debugger.GetScriptingLanguage(arg_value));
   }
 
-  if (args.hasArg(OPT_source_quietly)) {
+  if (args.hasArg(OPT_source_quietly))
+  {
     m_option_data.m_source_quietly = true;
   }
 
-  if (auto *arg = args.getLastArg(OPT_attach_name)) {
+  if (auto *arg = args.getLastArg(OPT_attach_name))
+  {
     auto arg_value = arg->getValue();
     m_option_data.m_process_name = arg_value;
   }
 
-  if (args.hasArg(OPT_wait_for)) {
+  if (args.hasArg(OPT_wait_for))
+  {
     m_option_data.m_wait_for = true;
   }
 
-  if (auto *arg = args.getLastArg(OPT_attach_pid)) {
+  if (auto *arg = args.getLastArg(OPT_attach_pid))
+  {
     auto arg_value = arg->getValue();
     char *remainder;
     m_option_data.m_process_pid = strtol(arg_value, &remainder, 0);
-    if (remainder == arg_value || *remainder != '\0') {
+    if (remainder == arg_value || *remainder != '\0')
+    {
       error.SetErrorStringWithFormat(
           "Could not convert process PID: \"%s\" into a pid.", arg_value);
       return error;
     }
   }
 
-  if (auto *arg = args.getLastArg(OPT_repl_language)) {
+  if (auto *arg = args.getLastArg(OPT_repl_language))
+  {
     auto arg_value = arg->getValue();
     m_option_data.m_repl_lang =
         SBLanguageRuntime::GetLanguageTypeFromString(arg_value);
-    if (m_option_data.m_repl_lang == eLanguageTypeUnknown) {
+    if (m_option_data.m_repl_lang == eLanguageTypeUnknown)
+    {
       error.SetErrorStringWithFormat("Unrecognized language name: \"%s\"",
                                      arg_value);
       return error;
     }
   }
 
-  if (args.hasArg(OPT_repl)) {
+  if (args.hasArg(OPT_repl))
+  {
     m_option_data.m_repl = true;
   }
 
-  if (auto *arg = args.getLastArg(OPT_repl_)) {
+  if (auto *arg = args.getLastArg(OPT_repl_))
+  {
     m_option_data.m_repl = true;
     if (auto arg_value = arg->getValue())
       m_option_data.m_repl_options = arg_value;
@@ -924,44 +1046,51 @@ SBError Driver::ProcessArgs(const opt::InputArgList &args, bool &exiting) {
   // matters.
   for (auto *arg : args.filtered(OPT_source_on_crash, OPT_one_line_on_crash,
                                  OPT_source, OPT_source_before_file,
-                                 OPT_one_line, OPT_one_line_before_file)) {
+                                 OPT_one_line, OPT_one_line_before_file))
+  {
     auto arg_value = arg->getValue();
-    if (arg->getOption().matches(OPT_source_on_crash)) {
+    if (arg->getOption().matches(OPT_source_on_crash))
+    {
       m_option_data.AddInitialCommand(arg_value, eCommandPlacementAfterCrash,
                                       true, error);
       if (error.Fail())
         return error;
     }
 
-    if (arg->getOption().matches(OPT_one_line_on_crash)) {
+    if (arg->getOption().matches(OPT_one_line_on_crash))
+    {
       m_option_data.AddInitialCommand(arg_value, eCommandPlacementAfterCrash,
                                       false, error);
       if (error.Fail())
         return error;
     }
 
-    if (arg->getOption().matches(OPT_source)) {
+    if (arg->getOption().matches(OPT_source))
+    {
       m_option_data.AddInitialCommand(arg_value, eCommandPlacementAfterFile,
                                       true, error);
       if (error.Fail())
         return error;
     }
 
-    if (arg->getOption().matches(OPT_source_before_file)) {
+    if (arg->getOption().matches(OPT_source_before_file))
+    {
       m_option_data.AddInitialCommand(arg_value, eCommandPlacementBeforeFile,
                                       true, error);
       if (error.Fail())
         return error;
     }
 
-    if (arg->getOption().matches(OPT_one_line)) {
+    if (arg->getOption().matches(OPT_one_line))
+    {
       m_option_data.AddInitialCommand(arg_value, eCommandPlacementAfterFile,
                                       false, error);
       if (error.Fail())
         return error;
     }
 
-    if (arg->getOption().matches(OPT_one_line_before_file)) {
+    if (arg->getOption().matches(OPT_one_line_before_file))
+    {
       m_option_data.AddInitialCommand(arg_value, eCommandPlacementBeforeFile,
                                       false, error);
       if (error.Fail())
@@ -970,36 +1099,46 @@ SBError Driver::ProcessArgs(const opt::InputArgList &args, bool &exiting) {
   }
 
   if (m_option_data.m_process_name.empty() &&
-      m_option_data.m_process_pid == LLDB_INVALID_PROCESS_ID) {
+      m_option_data.m_process_pid == LLDB_INVALID_PROCESS_ID)
+  {
 
     for (auto *arg : args.filtered(OPT_INPUT))
       m_option_data.m_args.push_back(arg->getAsString((args)));
 
     // Any argument following -- is an argument for the inferior.
-    if (auto *arg = args.getLastArgNoClaim(OPT_REM)) {
+    if (auto *arg = args.getLastArgNoClaim(OPT_REM))
+    {
       for (auto value : arg->getValues())
         m_option_data.m_args.emplace_back(value);
     }
-  } else if (args.getLastArgNoClaim() != nullptr) {
+  }
+  else if (args.getLastArgNoClaim() != nullptr)
+  {
     WithColor::warning() << "program arguments are ignored when attaching.\n";
   }
 
-  if (m_option_data.m_print_version) {
+  if (m_option_data.m_print_version)
+  {
     llvm::outs() << lldb::SBDebugger::GetVersionString() << '\n';
     exiting = true;
     return error;
   }
 
-  if (m_option_data.m_print_python_path) {
+  if (m_option_data.m_print_python_path)
+  {
     SBFileSpec python_file_spec = SBHostOS::GetLLDBPythonPath();
-    if (python_file_spec.IsValid()) {
+    if (python_file_spec.IsValid())
+    {
       char python_path[PATH_MAX];
       size_t num_chars = python_file_spec.GetPath(python_path, PATH_MAX);
-      if (num_chars < PATH_MAX) {
+      if (num_chars < PATH_MAX)
+      {
         llvm::outs() << python_path << '\n';
-      } else
+      }
+      else
         llvm::outs() << "<PATH TOO LONG>\n";
-    } else
+    }
+    else
       llvm::outs() << "<COULD NOT FIND PATH>\n";
     exiting = true;
     return error;
@@ -1008,7 +1147,8 @@ SBError Driver::ProcessArgs(const opt::InputArgList &args, bool &exiting) {
   return error;
 }
 
-static inline int OpenPipe(int fds[2], std::size_t size) {
+static inline int OpenPipe(int fds[2], std::size_t size)
+{
 #ifdef _WIN32
   return _pipe(fds, size, O_BINARY);
 #else
@@ -1018,18 +1158,25 @@ static inline int OpenPipe(int fds[2], std::size_t size) {
 }
 
 static ::FILE *PrepareCommandsForSourcing(const char *commands_data,
-                                          size_t commands_size) {
-  enum PIPES { READ, WRITE }; // Indexes for the read and write fds
+                                          size_t commands_size)
+{
+  enum PIPES
+  {
+    READ,
+    WRITE
+  }; // Indexes for the read and write fds
   int fds[2] = {-1, -1};
 
-  if (OpenPipe(fds, commands_size) != 0) {
+  if (OpenPipe(fds, commands_size) != 0)
+  {
     WithColor::error()
         << "can't create pipe file descriptors for LLDB commands\n";
     return nullptr;
   }
 
   ssize_t nrwr = write(fds[WRITE], commands_data, commands_size);
-  if (size_t(nrwr) != commands_size) {
+  if (size_t(nrwr) != commands_size)
+  {
     WithColor::error()
         << format(
                "write(%i, %p, %" PRIu64
@@ -1049,7 +1196,8 @@ static ::FILE *PrepareCommandsForSourcing(const char *commands_data,
   // Open the read file descriptor as a FILE * that we can return as an input
   // handle.
   ::FILE *commands_file = fdopen(fds[READ], "rb");
-  if (commands_file == nullptr) {
+  if (commands_file == nullptr)
+  {
     WithColor::error() << format("fdopen(%i, \"rb\") failed (errno = %i) "
                                  "when trying to open LLDB commands pipe",
                                  fds[READ], errno)
@@ -1062,17 +1210,21 @@ static ::FILE *PrepareCommandsForSourcing(const char *commands_data,
   return commands_file;
 }
 
-std::string EscapeString(std::string arg) {
+std::string EscapeString(std::string arg)
+{
   std::string::size_type pos = 0;
-  while ((pos = arg.find_first_of("\"\\", pos)) != std::string::npos) {
+  while ((pos = arg.find_first_of("\"\\", pos)) != std::string::npos)
+  {
     arg.insert(pos, 1, '\\');
     pos += 2;
   }
   return '"' + arg + '"';
 }
 
-int Driver::MainLoop() {
-  if (::tcgetattr(STDIN_FILENO, &g_old_stdin_termios) == 0) {
+int Driver::MainLoop()
+{
+  if (::tcgetattr(STDIN_FILENO, &g_old_stdin_termios) == 0)
+  {
     g_old_stdin_termios_is_valid = true;
     atexit(reset_stdin_termios);
   }
@@ -1094,7 +1246,8 @@ int Driver::MainLoop() {
 
   struct winsize window_size;
   if ((isatty(STDIN_FILENO) != 0) &&
-      ::ioctl(STDIN_FILENO, TIOCGWINSZ, &window_size) == 0) {
+      ::ioctl(STDIN_FILENO, TIOCGWINSZ, &window_size) == 0)
+  {
     if (window_size.ws_col > 0)
       m_debugger.SetTerminalWidth(window_size.ws_col);
   }
@@ -1105,7 +1258,8 @@ int Driver::MainLoop() {
   // REPL init file or the default file in the user's home directory.
   SBCommandReturnObject result;
   sb_interpreter.SourceInitFileInHomeDirectory(result, m_option_data.m_repl);
-  if (m_option_data.m_debug_mode) {
+  if (m_option_data.m_debug_mode)
+  {
     result.PutError(m_debugger.GetErrorFile());
     result.PutOutput(m_debugger.GetOutputFile());
   }
@@ -1130,9 +1284,11 @@ int Driver::MainLoop() {
 
   // If we're not in --repl mode, add the commands to process the file
   // arguments, and the commands specified to run afterwards.
-  if (!m_option_data.m_repl) {
+  if (!m_option_data.m_repl)
+  {
     const size_t num_args = m_option_data.m_args.size();
-    if (num_args > 0) {
+    if (num_args > 0)
+    {
       char arch_name[64];
       if (lldb::SBDebugger::GetDefaultArchitecture(arch_name,
                                                    sizeof(arch_name)))
@@ -1142,23 +1298,29 @@ int Driver::MainLoop() {
         commands_stream.Printf("target create %s",
                                EscapeString(m_option_data.m_args[0]).c_str());
 
-      if (!m_option_data.m_core_file.empty()) {
+      if (!m_option_data.m_core_file.empty())
+      {
         commands_stream.Printf(" --core %s",
                                EscapeString(m_option_data.m_core_file).c_str());
       }
       commands_stream.Printf("\n");
 
-      if (num_args > 1) {
+      if (num_args > 1)
+      {
         commands_stream.Printf("settings set -- target.run-args ");
         for (size_t arg_idx = 1; arg_idx < num_args; ++arg_idx)
           commands_stream.Printf(
               " %s", EscapeString(m_option_data.m_args[arg_idx]).c_str());
         commands_stream.Printf("\n");
       }
-    } else if (!m_option_data.m_core_file.empty()) {
+    }
+    else if (!m_option_data.m_core_file.empty())
+    {
       commands_stream.Printf("target create --core %s\n",
                              EscapeString(m_option_data.m_core_file).c_str());
-    } else if (!m_option_data.m_process_name.empty()) {
+    }
+    else if (!m_option_data.m_process_name.empty())
+    {
       commands_stream.Printf(
           "process attach --name %s",
           EscapeString(m_option_data.m_process_name).c_str());
@@ -1167,20 +1329,24 @@ int Driver::MainLoop() {
         commands_stream.Printf(" --waitfor");
 
       commands_stream.Printf("\n");
-
-    } else if (LLDB_INVALID_PROCESS_ID != m_option_data.m_process_pid) {
+    }
+    else if (LLDB_INVALID_PROCESS_ID != m_option_data.m_process_pid)
+    {
       commands_stream.Printf("process attach --pid %" PRIu64 "\n",
                              m_option_data.m_process_pid);
     }
 
     WriteCommandsForSourcing(eCommandPlacementAfterFile, commands_stream);
-  } else if (!m_option_data.m_after_file_commands.empty()) {
+  }
+  else if (!m_option_data.m_after_file_commands.empty())
+  {
     // We're in repl mode and after-file-load commands were specified.
     WithColor::warning() << "commands specified to run after file load (via -o "
                             "or -s) are ignored in REPL mode.\n";
   }
 
-  if (m_option_data.m_debug_mode) {
+  if (m_option_data.m_debug_mode)
+  {
     result.PutError(m_debugger.GetErrorFile());
     result.PutOutput(m_debugger.GetOutputFile());
   }
@@ -1195,11 +1361,13 @@ int Driver::MainLoop() {
   const size_t commands_size = commands_stream.GetSize();
 
   bool go_interactive = true;
-  if ((commands_data != nullptr) && (commands_size != 0u)) {
+  if ((commands_data != nullptr) && (commands_size != 0u))
+  {
     FILE *commands_file =
         PrepareCommandsForSourcing(commands_data, commands_size);
 
-    if (commands_file == nullptr) {
+    if (commands_file == nullptr)
+    {
       // We should have already printed an error in PrepareCommandsForSourcing.
       return 1;
     }
@@ -1233,7 +1401,8 @@ int Driver::MainLoop() {
 
     if (m_option_data.m_batch &&
         results.GetResult() == lldb::eCommandInterpreterResultInferiorCrash &&
-        !m_option_data.m_after_crash_commands.empty()) {
+        !m_option_data.m_after_crash_commands.empty())
+    {
       SBStream crash_commands_stream;
       WriteCommandsForSourcing(eCommandPlacementAfterCrash,
                                crash_commands_stream);
@@ -1241,7 +1410,8 @@ int Driver::MainLoop() {
       const size_t crash_commands_size = crash_commands_stream.GetSize();
       commands_file =
           PrepareCommandsForSourcing(crash_commands_data, crash_commands_size);
-      if (commands_file != nullptr) {
+      if (commands_file != nullptr)
+      {
         m_debugger.SetInputFileHandle(commands_file, true);
         SBCommandInterpreterRunResult local_results =
             m_debugger.RunCommandInterpreter(options);
@@ -1263,23 +1433,28 @@ int Driver::MainLoop() {
   // Now set the input file handle to STDIN and run the command interpreter
   // again in interactive mode or repl mode and let the debugger take ownership
   // of stdin.
-  if (go_interactive) {
+  if (go_interactive)
+  {
     m_debugger.SetInputFileHandle(stdin, true);
 
-    if (m_option_data.m_repl) {
+    if (m_option_data.m_repl)
+    {
       const char *repl_options = nullptr;
       if (!m_option_data.m_repl_options.empty())
         repl_options = m_option_data.m_repl_options.c_str();
       SBError error(
           m_debugger.RunREPL(m_option_data.m_repl_lang, repl_options));
-      if (error.Fail()) {
+      if (error.Fail())
+      {
         const char *error_cstr = error.GetCString();
         if ((error_cstr != nullptr) && (error_cstr[0] != 0))
           WithColor::error() << error_cstr << '\n';
         else
           WithColor::error() << error.GetError() << '\n';
       }
-    } else {
+    }
+    else
+    {
       m_debugger.RunCommandInterpreter(handle_events, spawn_thread);
     }
   }
@@ -1290,27 +1465,34 @@ int Driver::MainLoop() {
   return sb_interpreter.GetQuitStatus();
 }
 
-void Driver::ResizeWindow(unsigned short col) {
+void Driver::ResizeWindow(unsigned short col)
+{
   GetDebugger().SetTerminalWidth(col);
 }
 
-void sigwinch_handler(int signo) {
+void sigwinch_handler(int signo)
+{
   struct winsize window_size;
   if ((isatty(STDIN_FILENO) != 0) &&
-      ::ioctl(STDIN_FILENO, TIOCGWINSZ, &window_size) == 0) {
-    if ((window_size.ws_col > 0) && g_driver != nullptr) {
+      ::ioctl(STDIN_FILENO, TIOCGWINSZ, &window_size) == 0)
+  {
+    if ((window_size.ws_col > 0) && g_driver != nullptr)
+    {
       g_driver->ResizeWindow(window_size.ws_col);
     }
   }
 }
 
-void sigint_handler(int signo) {
+void sigint_handler(int signo)
+{
 #ifdef _WIN32 // Restore handler as it is not persistent on Windows
   signal(SIGINT, sigint_handler);
 #endif
   static std::atomic_flag g_interrupt_sent = ATOMIC_FLAG_INIT;
-  if (g_driver != nullptr) {
-    if (!g_interrupt_sent.test_and_set()) {
+  if (g_driver != nullptr)
+  {
+    if (!g_interrupt_sent.test_and_set())
+    {
       g_driver->GetDebugger().DispatchInputInterrupt();
       g_interrupt_sent.clear();
       return;
@@ -1320,7 +1502,8 @@ void sigint_handler(int signo) {
   _exit(signo);
 }
 
-void sigtstp_handler(int signo) {
+void sigtstp_handler(int signo)
+{
   if (g_driver != nullptr)
     g_driver->GetDebugger().SaveInputTerminalState();
 
@@ -1329,7 +1512,8 @@ void sigtstp_handler(int signo) {
   signal(signo, sigtstp_handler);
 }
 
-void sigcont_handler(int signo) {
+void sigcont_handler(int signo)
+{
   if (g_driver != nullptr)
     g_driver->GetDebugger().RestoreInputTerminalState();
 
@@ -1338,7 +1522,8 @@ void sigcont_handler(int signo) {
   signal(signo, sigcont_handler);
 }
 
-static void printHelp(LLDBOptTable &table, llvm::StringRef tool_name) {
+static void printHelp(LLDBOptTable &table, llvm::StringRef tool_name)
+{
   std::string usage_str = tool_name.str() + " [options]";
   table.printHelp(llvm::outs(), usage_str.c_str(), "LLDB", false);
 
@@ -1384,7 +1569,8 @@ EXAMPLES:
   llvm::outs() << examples << '\n';
 }
 
-int main(int argc, char const *argv[]) {
+int main(int argc, char const *argv[])
+{
   // Editline uses for example iswprint which is dependent on LC_CTYPE.
   std::setlocale(LC_ALL, "");
   std::setlocale(LC_CTYPE, "");
@@ -1402,31 +1588,37 @@ int main(int argc, char const *argv[]) {
       T.ParseArgs(arg_arr, MissingArgIndex, MissingArgCount);
   llvm::StringRef argv0 = llvm::sys::path::filename(argv[0]);
 
-  if (input_args.hasArg(OPT_help)) {
+  if (input_args.hasArg(OPT_help))
+  {
     printHelp(T, argv0);
     return 0;
   }
 
   // Check for missing argument error.
-  if (MissingArgCount) {
+  if (MissingArgCount)
+  {
     WithColor::error() << "argument to '"
                        << input_args.getArgString(MissingArgIndex)
                        << "' is missing\n";
   }
   // Error out on unknown options.
-  if (input_args.hasArg(OPT_UNKNOWN)) {
-    for (auto *arg : input_args.filtered(OPT_UNKNOWN)) {
+  if (input_args.hasArg(OPT_UNKNOWN))
+  {
+    for (auto *arg : input_args.filtered(OPT_UNKNOWN))
+    {
       WithColor::error() << "unknown option: " << arg->getSpelling() << '\n';
     }
   }
-  if (MissingArgCount || input_args.hasArg(OPT_UNKNOWN)) {
+  if (MissingArgCount || input_args.hasArg(OPT_UNKNOWN))
+  {
     llvm::errs() << "Use '" << argv0
                  << " --help' for a complete list of options.\n";
     return 1;
   }
 
   SBError error = SBDebugger::InitializeWithErrorHandling();
-  if (error.Fail()) {
+  if (error.Fail())
+  {
     WithColor::error() << "initialization failed: " << error.GetCString()
                        << '\n';
     return 1;
@@ -1449,11 +1641,14 @@ int main(int argc, char const *argv[]) {
 
     bool exiting = false;
     SBError error(driver.ProcessArgs(input_args, exiting));
-    if (error.Fail()) {
+    if (error.Fail())
+    {
       exit_code = 1;
       if (const char *error_cstr = error.GetCString())
         WithColor::error() << error_cstr << '\n';
-    } else if (!exiting) {
+    }
+    else if (!exiting)
+    {
       exit_code = driver.MainLoop();
     }
   }
