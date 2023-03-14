@@ -194,22 +194,6 @@ const startLayout = [
   },
 ];
 
-// const treeData = {
-// {
-//         name: "Code",
-//         children: [
-//           {
-//             name: "child folder 1",
-//             children: [
-
-//               { name: "hello" },
-//               { name: "wat" },
-
-//             ]
-//           },
-//           }
-//       };
-
 export default {
   name: "App",
   components: {
