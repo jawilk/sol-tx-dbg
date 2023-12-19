@@ -1,7 +1,9 @@
 [image0]: ./media/view_0.png
 [image1]: ./media/view_1.png
 
-https://sol-tx.wtf
+Step-by-step replay of a solana transaction in the browser, with CPI support. It uses an lldb wasm build in the browser and an execution environemnt with the vm on sever side (slow). If a CPI is encountered, a new browser tab is opened.
+A demo can be found here https://www.youtube.com/watch?v=42N-S7gg3-Q.  
+https://sol-tx.wtf (inactive)
 # sol-tx-dbg
 ![alt text][image0]
 ![alt text][image1]
